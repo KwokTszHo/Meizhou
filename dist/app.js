@@ -4,7 +4,7 @@ import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-11';
 import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-10';
 import {renderPaper} from './reader.js?v=20261017-11';
 import {setupLearning} from './learning.js?v=20261017-12';
-import {setupAntecedents} from './antecedents.js?v=20261017-12';
+import {setupAntecedents} from './antecedents.js?v=20261017-13';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
