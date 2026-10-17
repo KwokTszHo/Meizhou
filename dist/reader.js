@@ -1,4 +1,4 @@
-import {renderSoilTable} from './engineering.js?v=20261017-9';
+import {renderSoilTable} from './engineering.js?v=20261017-10';
 const element=(tag,text,className)=>{const node=document.createElement(tag);if(text)node.textContent=text;if(className)node.className=className;return node;};
 const clean=text=>(text||'').replace(/[\u200b-\u200d\ufeff]/g,'').trim();
 const dimensions={'image1.jpeg':[717,506],'image2.jpeg':[589,442],'image3.jpg':[1600,1112],'image4.jpeg':[277,208],'image5.jpeg':[614,434],'image6.jpeg':[292,389],'image7.jpeg':[292,389],'image8.jpeg':[1270,898],'image9.jpeg':[658,465],'image10.jpeg':[526,372],'image11.jpeg':[277,208],'image12.jpeg':[277,208]};

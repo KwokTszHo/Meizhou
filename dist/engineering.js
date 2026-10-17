@@ -16,6 +16,7 @@ export function renderSamplePanel(){
  return `<div class="sample-toolbar"><span><b class="interaction-hint">点击样本编号</b> 查看指标与强度对比</span><button class="small-button light" data-toggle-table aria-pressed="${fullTable}" aria-expanded="${fullTable}">${fullTable?'收起扩展指标 −':'展开全部试验指标 ＋'}</button></div><p class="table-scroll-hint">← 左右滑动表格，查看全部试验指标 →</p>${renderSoilTable(fullTable,true)}<div class="sample-detail" id="sample-detail">${sampleDescription()}</div>`;
 }
 const parts={
+ all:'全部构造：恢复原有山体、填方路基、道路、滑面与排水设施的整体显示。点选其他按钮，可突出对应构造并弱化周边部分。',
  mountain:'原有山体：剖面图展示道路上方的地形。模型将原有山体与填方土体区分，以便理解半挖半填路基及新旧土体的接触关系。',
  fill:'填方路基：剖面图中填土坡脚至路面高约 30 m，边坡坡比 1∶1.5。稳定计算使用截面面积 A = 319 m²，材料强度由土工试验参数表征。',
  slip:'滑动界面：剖面图中的新填土与原地面接触线，是整体滑块的分析边界。模型采用 β = 24.4°、L = 56.8 m；后续工况将该界面的黏聚项取为零。',

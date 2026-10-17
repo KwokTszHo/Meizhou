@@ -1,8 +1,8 @@
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
 import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-5';
-import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-9';
-import {renderPaper} from './reader.js?v=20261017-9';
+import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-10';
+import {renderPaper} from './reader.js?v=20261017-10';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
@@ -42,11 +42,11 @@ $('#lab-form').addEventListener('input',e=>{if(e.target.matches('input[type="ran
 $('#lab-stage').addEventListener('change',()=>{stopPlayback();selectStage(+$('#lab-stage').value);});
 $('#lab-form').addEventListener('reset',e=>{e.preventDefault();stopPlayback();selectStage(currentStage);toast('已恢复当前工况的基准参数');});
 $('#save-experiment').addEventListener('click',()=>{const r=updateLab();download('归途之下-计算记录.txt',`归途之下｜力学实验记录\n工况：${stages[r.stage].name}\n公式：${stages[r.stage].formula}\nφ=${r.params.phi}°\nβ=${r.params.beta}°\nc=${r.params.cohesion} kPa\nP=${r.params.load} kN\n容重=${r.params.unitWeight} kN/m³\n土重W=${r.weight.toFixed(4)} kN\nA=319 m²，L=56.8 m\nR=${r.resistance.toFixed(4)} kN\nT=${r.driving.toFixed(4)} kN\nFs=${r.fs.toFixed(6)}\n\n力学科普简化模型 · ${stages[r.stage].source}\n${stages[r.stage].note}\n`);toast('计算记录已生成');});
-document.addEventListener('click',e=>{const b=e.target.closest('[data-stage]');if(b){stopPlayback();selectStage(+b.dataset.stage);}});
+document.addEventListener('click',e=>{const b=e.target.closest('.stage-tabs button[data-stage],.chart-point[data-stage]');if(b){stopPlayback();selectStage(+b.dataset.stage);}});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('chart-point')){e.preventDefault();stopPlayback();selectStage(+e.target.dataset.stage);}});
-function updatePlayback(){const active=playing!==null;$('#play-stages').textContent=active?'Ⅱ 暂停播放':'▷ 播放四个工况';$('#play-stages').setAttribute('aria-pressed',String(active));$('#playback-status').textContent=`${active?'正在播放':'当前工况'} · 0${currentStage+1} / 04 · ${stages[currentStage].name}`;$('#playback-progress').style.width=((currentStage+1)/4*100)+'%';$('.mini-model').classList.toggle('is-playing',active);}
+function updatePlayback(){const active=playing!==null;$('#play-stages').textContent=active?'Ⅱ 暂停自动播放':'▷ 自动播放四个工况';$('#play-stages').setAttribute('aria-pressed',String(active));$('#playback-status').textContent=`${active?'自动循环播放 · 约 3 秒切换':'当前工况'} · 0${currentStage+1} / 04 · ${stages[currentStage].name}`;$('#playback-progress').style.width=((currentStage+1)/4*100)+'%';$('.mini-model').classList.toggle('is-playing',active);}
 function stopPlayback(){clearInterval(playing);playing=null;updatePlayback();}
-$('#play-stages').addEventListener('click',()=>{if(playing!==null){stopPlayback();return;}selectStage(currentStage===3?0:currentStage+1);playing=setInterval(()=>{if(currentStage===3){stopPlayback();return;}selectStage(currentStage+1);},2800);updatePlayback();});
+$('#play-stages').addEventListener('click',()=>{if(playing!==null){stopPlayback();return;}playing=setInterval(()=>selectStage((currentStage+1)%4),2800);selectStage(0);updatePlayback();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
 $('#start-tour').addEventListener('click',()=>{selectStage(0);toast('从四个工况开始：选节点看变化，再进入实验室亲手计算。');});
 $('#see-model').addEventListener('click',e=>{e.preventDefault();const model=$('#explore-scene');scenes[1]?.resetView(true);scenes[1]?.toggleForces(true);history.replaceState(null,'','#explore-scene');model.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});model.focus({preventScroll:true});model.parentElement.classList.add('model-highlight');setTimeout(()=>model.parentElement.classList.remove('model-highlight'),1800);});
@@ -56,7 +56,16 @@ $$('[data-open]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.open
 $$('.close-dialog').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
 $$('dialog').forEach(dialog=>dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}}));
 $$('.dialog-anchor').forEach(a=>a.addEventListener('click',()=>a.closest('dialog').close()));
-function openPhoto(name,caption){$('#lightbox-image').src='assets/'+name;$('#lightbox-image').alt=caption;$('#lightbox-caption').textContent=caption;$('#download-photo').href='assets/'+name;$('#photo-dialog').showModal();}
+let photoRequest=0;
+async function openPhoto(name,caption){
+ const request=++photoRequest,dialog=$('#photo-dialog'),image=$('#lightbox-image'),status=$('#photo-load-status'),downloadLink=$('#download-photo');
+ image.hidden=true;image.removeAttribute('src');image.alt='';downloadLink.hidden=true;downloadLink.removeAttribute('href');$('#lightbox-caption').textContent=caption;status.hidden=false;status.textContent='正在加载：'+caption;dialog.setAttribute('aria-busy','true');if(!dialog.open)dialog.showModal();
+ const incoming=new Image();incoming.src='assets/'+name;
+ try{await incoming.decode();if(request!==photoRequest||!dialog.open)return;image.src=incoming.src;image.alt=caption;image.hidden=false;downloadLink.href=incoming.src;downloadLink.hidden=false;status.hidden=true;}
+ catch{if(request!==photoRequest||!dialog.open)return;status.textContent='这张图片加载未完成，请关闭后重新打开。';}
+ finally{if(request===photoRequest)dialog.setAttribute('aria-busy','false');}
+}
+$('#photo-dialog').addEventListener('close',()=>{photoRequest++;$('#lightbox-image').hidden=true;$('#lightbox-image').removeAttribute('src');});
 document.addEventListener('click',e=>{const b=e.target.closest('.photo-open');if(b)openPhoto(b.dataset.image,b.dataset.caption);});
 const samples=[['ZK1-1','1.71','6.3','26.1','29.8'],['ZK1-2','1.73','11.3','26.1','29.8'],['ZK2-1','1.76','7.2','31.6','29.3'],['ZK2-2','1.77','5.7','31.6','29.3']];
 function testsTable(){return `<div class="table-wrap"><table><caption class="sr-only">主要土工试验指标</caption><thead><tr><th scope="col">样本编号</th><th scope="col">湿密度 / g·cm⁻³</th><th scope="col">含水率 / %</th><th scope="col">快剪黏聚力 / kPa</th><th scope="col">快剪内摩擦角 / °</th></tr></thead><tbody>${samples.map(row=>'<tr>'+row.map((v,i)=>i===0?`<th scope="row">${v}</th>`:`<td>${v}</td>`).join('')+'</tr>').join('')}</tbody></table></div>`;}
@@ -67,7 +76,7 @@ function evidence(type){
  if(type==='water')$('#evidence-content').innerHTML=`<div class="evidence-split"><button class="photo-open" data-image="image5.jpeg" data-caption="地形与降雨汇流示意 · 集雨面积 0.5 km²。"><img src="assets/image5.jpeg" alt="地形与降雨汇流示意图" loading="lazy"></button><div><h3>雨落下之后，水往哪里去？</h3><p>集雨面积 0.5 km²、月降雨量 740.5 mm，对应的降雨总体积为 500000 × 0.7405 = 370250 m³，约 37 万 m³。</p><p>从降雨到汇流，再到入渗与排出，水沿着地形与土体中的通道移动。产流、渗透和排水条件共同决定坡体内部的含水与水压力变化。</p><p>模型通过天然容重、饱和容重和浮容重三个取值，以及渗流作用项，展示水如何进入边坡的受力分析。</p></div></div>`;
 }
 $$('[data-evidence]').forEach(b=>b.addEventListener('click',()=>evidence(b.dataset.evidence)));
-document.addEventListener('click',e=>{if(e.target.closest('[data-photo-load]'))openPhoto('image9.jpeg','车道荷载计算简图');});
+document.addEventListener('click',e=>{if(e.target.closest('[data-photo-load]'))openPhoto('image9.jpeg','图6 · 车道荷载计算简图');});
 let paperLoaded=false;
 $('#read-paper').addEventListener('click',async()=>{
  $('#reader-dialog').showModal();if(paperLoaded)return;$('#reader-content').textContent='正在读取论文…';
@@ -106,7 +115,7 @@ function showSceneError(host,error){
 }
 const sceneHosts=[$('#scene'),$('#explore-scene')];
 try{
- const {createScene}=await import('./scene.js?v=20261017-8');
+ const {createScene}=await import('./scene.js?v=20261017-10');
  for(const [index,host] of sceneHosts.entries()){
   try{scenes[index]=createScene(host);scenes[index].setStage(currentStage);if(index===1){scenes[index].toggleForces(true);scenes[index].resetView(true);}}
   catch(error){showSceneError(host,error);}
