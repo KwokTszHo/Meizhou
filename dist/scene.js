@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {OrbitControls} from './vendor/OrbitControls.js';
+import {forceBreakdown} from './model.js?v=20261017-4';
 
 export function createScene(host){
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -83,9 +84,20 @@ export function createScene(host){
   const baseEdges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(28,1.2,14)),new THREE.LineBasicMaterial({color:0x9e9875,transparent:true,opacity:.35}));baseEdges.position.set(0,-3.4,0);world.add(baseEdges);
   const grid=new THREE.GridHelper(48,24,0x60816a,0x60816a);grid.material.transparent=true;grid.material.opacity=.10;grid.position.y=-4.25;scene.add(grid);
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,50),new THREE.ShadowMaterial({opacity:.22}));floor.rotation.x=-Math.PI/2;floor.position.y=-4.16;floor.receiveShadow=true;scene.add(floor);
+  // Structural elements identified in the paper section; no extra resisting terms.
+  const wall=prism([[12.7,-2.8],[14.1,-2.8],[13.8,-.9],[13.15,-.85]],14,mat(0xaeb5a7));world.add(wall);
+  const drainage=new THREE.Group();world.add(drainage);
+  const channelMat=mat(0x879d97);
+  box(-1.55,4.25,0,.35,.1,14.3,channelMat,drainage);
+  box(14,-2.72,0,.36,.12,14.3,channelMat,drainage);
+  const dimensions=new THREE.Group();world.add(dimensions);
+  function dimension(points){const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(...p))),new THREE.LineBasicMaterial({color:0xa5c7b2,transparent:true,opacity:.6}));dimensions.add(line);}
+  dimension([[15,-2.8,7.5],[15,4.1,7.5]]);dimension([[14.7,-2.8,7.5],[15.3,-2.8,7.5]]);dimension([[14.7,4.1,7.5],[15.3,4.1,7.5]]);
+  dimension([[-.85,4.95,7.5],[3,4.95,7.5]]);
+  if(host.id==='scene')for(const [text,pos]of[['填方高约 30 m','15.1,1.1,7.5']]){const el=document.createElement('div');el.className='scene-label';el.dataset.position=pos;el.textContent=text;host.append(el);}
   let stage=0,visible=true,last=0,clock=0;
   const labels=[...host.querySelectorAll('[data-position]')].map(el=>({el,pos:new THREE.Vector3(...el.dataset.position.split(',').map(Number))}));
-  function setStage(value){stage=value;crack.visible=value>0;pond.visible=value>0;rain.visible=value>0;water.visible=value===3;cars.visible=value!==1;U.visible=value===3;R.setLength([4.6,3.5,3.1,1.8][value],.45,.24);T.setLength([3.2,3.2,4.3,4.8][value],.45,.24);dirt.color.setHex(value===3?0x9d9e84:0xc3a079);}
+  function setStage(value){stage=value;crack.visible=value>0;pond.visible=value>0;rain.visible=value>0;water.visible=value===3;cars.visible=value!==1;U.visible=value===3;const r=forceBreakdown(value),scale=5.2/Math.max(r.resistance,r.driving);R.setLength(Math.max(.4,r.resistance*scale),.4,.2);T.setLength(Math.max(.4,r.driving*scale),.4,.2);dirt.color.setHex(value===3?0x9d9e84:0xc3a079);host.dataset.stage=value;}
   function resetView(section=false){controls.target.set(0,2.3,0);camera.position.set(...(section?[0,4,47]:[27,21,31]));controls.update();}
   function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
   const ro=new ResizeObserver(resize);ro.observe(host);resetView();resize();setStage(0);
@@ -97,5 +109,14 @@ export function createScene(host){
     for(const label of labels){const point=label.pos.clone().applyMatrix4(world.matrixWorld).project(camera);label.el.style.transform=`translate(${(point.x*.5+.5)*host.clientWidth}px,${(-point.y*.5+.5)*host.clientHeight}px)`;label.el.style.opacity=Math.abs(point.x)<.95&&Math.abs(point.y)<.95&&point.z<1?'1':'0';}
   }requestAnimationFrame(frame);
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();host.querySelectorAll('.scene-label').forEach(e=>e.style.opacity='0');});
-  return {setStage,resetView,toggleForces(value){arrows.visible=value;},renderer};
+  const parts={mountain:[hill,terrain],fill:[fill,slopeShape],slip:[slipLine],water:[pond,drainage],load:[roadway,cars],wall:[wall]};
+  function focusPart(key){host.dataset.selectedPart=key;for(const [name,objects]of Object.entries(parts))for(const object of objects)object.traverse(child=>{if(child.isMesh&&child.material?.emissive)child.material.emissive.setHex(name===key?0x253a22:0x000000);});}
+  const ray=new THREE.Raycaster();ray.params.Line.threshold=.18;const pointer=new THREE.Vector2();let hoverObject=null,hoverScale=null,down=null;
+  const restoreHover=()=>{if(hoverObject&&hoverScale)hoverObject.scale.copy(hoverScale);hoverObject=null;hoverScale=null;};
+  function hit(event){const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);const hits=ray.intersectObjects(Object.values(parts).flat(),true).filter(h=>{let object=h.object;while(object){if(!object.visible)return false;object=object.parent;}return true;});if(!hits.length)return null;const object=hits[0].object;for(const [key,objects]of Object.entries(parts)){let parent=object;while(parent){if(objects.includes(parent))return {key,object};parent=parent.parent;}}return null;}
+  renderer.domElement.addEventListener('pointermove',event=>{if(event.pointerType==='touch'||event.buttons)return;const found=hit(event);if(found?.object!==hoverObject){restoreHover();if(found?.object.isMesh){hoverObject=found.object;hoverScale=hoverObject.scale.clone();hoverObject.scale.multiplyScalar(1.018);}}renderer.domElement.style.cursor=found?'pointer':'grab';});
+  renderer.domElement.addEventListener('pointerleave',restoreHover);
+  renderer.domElement.addEventListener('pointerdown',event=>{down={x:event.clientX,y:event.clientY};});
+  renderer.domElement.addEventListener('pointerup',event=>{if(down&&Math.hypot(event.clientX-down.x,event.clientY-down.y)<6){const found=hit(event);if(found){focusPart(found.key);host.dispatchEvent(new CustomEvent('model-part-select',{detail:found.key,bubbles:true}));}}down=null;});
+  return {setStage,resetView,focusPart,toggleForces(value){arrows.visible=value;},renderer};
 }

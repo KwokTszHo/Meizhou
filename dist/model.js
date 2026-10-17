@@ -20,6 +20,17 @@ export function calculate(stage,params={}) {
   else throw new RangeError('Unknown stage');
   return {fs:resistance/driving,resistance,driving,weight};
 }
+export function forceBreakdown(stage,params={}) {
+  const p=stageParameters(stage,params),r=calculate(stage,p),angle=p.beta*Math.PI/180;
+  const factor=stage===3?(p.gammaSat-p.gammaWater)/p.gammaSat:1;
+  const normal=(r.weight+(stage===0?p.load:0))*Math.cos(angle)*factor;
+  const cohesion=stage===0?p.cohesion*p.length:0;
+  return {...r,params:p,factor,normal,cohesion,friction:normal*Math.tan(p.phi*Math.PI/180)};
+}
+export function stabilityState(fs) {
+  if(Math.abs(fs-1)<1e-6)return {level:'critical',label:'临界平衡',message:'抗滑力与下滑力相等，模型没有抗滑余量。'};
+  return fs>1?{level:'stable',label:'模型稳定',message:'抗滑力大于下滑力，当前模型可维持平衡。'}:{level:'danger',label:'危险：模型失稳',message:'抗滑力不足以平衡下滑力，当前工况存在滑动趋势。'};
+}
 export const stages=[
  {name:'初始平衡',short:'初始平衡',value:'1.76',tag:'黏聚与摩擦共同抵抗滑动',description:'天然含水条件下，滑面具有黏聚力。土体自重与车辆荷载产生下滑作用，黏聚和摩擦共同提供抗滑力，模型具有较大的抗滑余量。',formula:'Fₛ = [cL + (W₁ + P) cosβ tanφ] / [(W₁ + P) sinβ]',source:'计算式（9）',conditions:'天然湿重 · 保留黏聚项 · 计车辆荷载',note:'滑面黏聚力 c = 28.85 kPa，天然容重 γ = 17.4 kN/m³。',resistanceFormula:'R = cL + (W₁ + P) cosβ tanφ',drivingFormula:'T = (W₁ + P) sinβ',weightFormula:'W₁ = γA = 17.4 × 319 = 5550.6 kN',substitution:'Fₛ = [28.85 × 56.8 + (5550.6 + 2284.5) × cos24.4° × tan29.6°] / [(5550.6 + 2284.5) × sin24.4°] ≈ 1.76'},
  {name:'隐患发展 · 低车流',short:'裂隙形成',value:'1.25',tag:'滑面形成，黏聚项退出',description:'滑动界面形成后，模型将界面黏聚力取为零。土体接近饱和，低车流工况忽略车辆荷载；抗滑作用主要来自摩擦，安全系数约为 1.25。',formula:'Fₛ = tanφ / tanβ',source:'计算式（10）',conditions:'接近饱和 · c = 0 · P = 0',note:'c = 0 表示滑动界面的简化条件；本工况不计车辆荷载。',resistanceFormula:'R = W₂ cosβ tanφ',drivingFormula:'T = W₂ sinβ',weightFormula:'W₂ = γsatA = 20 × 319 = 6380 kN',substitution:'Fₛ = (6380 × cos24.4° × tan29.6°) / (6380 × sin24.4°) = tan29.6° / tan24.4° ≈ 1.25'},

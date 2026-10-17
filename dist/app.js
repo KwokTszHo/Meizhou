@@ -1,8 +1,10 @@
-import {calculate,stages,stageParameters} from './model.js?v=20261017-2';
+import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-4';
 import qrcode from './vendor/qrcode.js';
+import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-4';
+import {renderSamplePanel,setupEngineering,updateTwinReadout} from './engineering.js?v=20261017-4';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer;
-const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>n>=1?'抗力大于滑力':'抗力不足';
+const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3200);}
 function chart(){
  const xs=[45,195,345,495],y=v=>230-v*105;
@@ -12,29 +14,30 @@ function selectStage(i){
  currentStage=i;const s=stages[i],r=calculate(i);
  $$('[data-stage]').forEach(e=>{if(e.tagName==='BUTTON')e.setAttribute('aria-pressed',String(+e.dataset.stage===i));});
  $('#stage-index').textContent=`工况 0${i+1} / 04`;$('#stage-fs').textContent=s.value;$('#stage-name').textContent=s.name;$('#stage-description').textContent=s.description;$('#stage-conditions').textContent=s.conditions;
- $('#stage-status').textContent=safe(r.fs);$('#stage-status').classList.toggle('unsafe',r.fs<1);
+ $('#stage-status').textContent=safe(r.fs);$('#stage-status').classList.toggle('unsafe',r.fs<1-1e-6);$('#stage-status').classList.toggle('critical',Math.abs(r.fs-1)<1e-6);
  const max=Math.max(r.resistance,r.driving);$('#r-bar').style.width=r.resistance/max*100+'%';$('#t-bar').style.width=r.driving/max*100+'%';
  scenes.forEach(scene=>scene.setStage(i));$('#model-stage').textContent=s.name;$('#explore-model-stage').textContent=s.name;chart();
- $('#lab-stage').value=i;const p=stageParameters(i);for(const key of Object.keys(initialInputs))$('#'+key).value=p[key];updateLab();updatePlayback();
+ $('#lab-stage').value=i;const p=stageParameters(i);for(const key of Object.keys(initialInputs))$('#'+key).value=p[key];$('#lab-part-explainer').textContent='当前为'+s.name+'。点选荷载、土体、滑面或受力箭头，查看对应的参数与计算含义。';updateLab();updatePlayback();
  $$('#formula-stages article').forEach((card,index)=>card.classList.toggle('is-current',index===i));
 }
 const initialInputs={phi:29.6,beta:24.4,load:2284.5,cohesion:28.85};
 function labParams(){return stageParameters(+$('#lab-stage').value,Object.fromEntries(Object.keys(initialInputs).map(k=>[k,+$('#'+k).value])));}
-function updateLab(){
+function updateLab(changed=''){
  const stage=+$('#lab-stage').value,p=labParams(),r=calculate(stage,p),base=calculate(stage).fs;
  $('#cohesion').disabled=stage!==0;$('#load').disabled=stage===1;
  for(const k of Object.keys(initialInputs)){const input=$('#'+k);input.value=p[k];input.style.setProperty('--pct',((p[k]-input.min)/(input.max-input.min))*100+'%');$('#'+k+'-out').textContent=k==='load'?fmt(p[k])+' kN':k==='cohesion'?p[k].toFixed(2)+' kPa':p[k].toFixed(1)+'°';}
- $('#lab-fs').textContent=r.fs.toFixed(2);$('#lab-status').textContent=safe(r.fs);$('#lab-status').classList.toggle('unsafe',r.fs<1);$('#lab-fs').style.color=r.fs<1?'#ad7250':'#315637';
+ const state=stabilityState(r.fs);$('#lab-fs').textContent=r.fs.toFixed(Math.abs(r.fs-1)<.005?4:2);$('#lab-status').textContent=state.label;$('#lab-status').classList.toggle('unsafe',state.level==='danger');$('#lab-status').classList.toggle('critical',state.level==='critical');$('#lab-fs').style.color=state.level==='danger'?'#ad4e3e':state.level==='critical'?'#946523':'#315637';
  $('#gauge-needle').style.left=Math.min(100,r.fs/3*100)+'%';$('#lab-r').textContent=fmt(r.resistance)+' kN';$('#lab-t').textContent=fmt(r.driving)+' kN';
  $('#lab-formula').textContent=stages[stage].formula;$('#lab-formula-source').textContent=stages[stage].source;
  const diff=r.fs-base;
- $('#lab-insight').textContent=`${Math.abs(diff)<.00001?'当前为此工况的基准参数。':`相较此工况基准值，Fₛ ${diff>0?'增加':'减少'} ${Math.abs(diff).toFixed(2)}。`}${r.fs<1?'抗滑项小于下滑项。':r.fs===1?'抗滑项与下滑项相等。':'抗滑项大于下滑项。'}${r.fs>3?'结果超过下方刻度上限，数值显示完整。':''}`;
+ $('#lab-insight').textContent=`${Math.abs(diff)<.00001?'当前为此工况的基准参数。':`相较此工况基准值，Fₛ ${diff>0?'增加':'减少'} ${Math.abs(diff).toFixed(2)}。`}${state.message}${r.fs>3?'结果超过下方刻度上限，数值显示完整。':''}`;
  $('#lab-control-note').textContent=stage===0?'天然含水条件：黏聚与摩擦共同抗滑，计入车辆荷载。':stage===1?'滑动界面取 c = 0，低车流工况取 P = 0；这两个参数已同步置零。':'滑动界面取 c = 0，车辆荷载可调。'+(stage===3?'此工况采用浮容重与渗流作用项。':'土重采用饱和容重计算。');
  $('#lab-params').innerHTML=`<div><span>${stage===0?'天然容重 γ':stage===3?'浮容重 γ′':'饱和容重 γsat'}</span><strong>${p.unitWeight.toFixed(1)} <small>kN/m³</small></strong></div><div><span>当前土重 W${stage===0?'₁':stage===3?'₃':'₂'}</span><strong>${fmt(r.weight)} <small>kN</small></strong></div><div><span>截面面积 A</span><strong>319 <small>m²</small></strong></div><div><span>滑面长度 L</span><strong>56.8 <small>m</small></strong></div>${stage===3?'<p>γ′ = 20 − 9.8 = 10.2 kN/m³ · 渗流作用系数 = 0.51</p>':''}`;
+ renderWorkbench(stage,p,r,changed);updateTwinReadout(r.fs,stages[stage].name);
  return {stage,params:p,...r};
 }
 function download(name,text){const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-$('#lab-form').addEventListener('input',e=>{if(e.target.matches('input[type="range"]')){stopPlayback();updateLab();}});
+$('#lab-form').addEventListener('input',e=>{if(e.target.matches('input[type="range"]')){stopPlayback();updateLab(e.target.id);}});
 $('#lab-stage').addEventListener('change',()=>{stopPlayback();selectStage(+$('#lab-stage').value);});
 $('#lab-form').addEventListener('reset',e=>{e.preventDefault();stopPlayback();selectStage(currentStage);toast('已恢复当前工况的基准参数');});
 $('#save-experiment').addEventListener('click',()=>{const r=updateLab();download('归途之下-计算记录.txt',`归途之下｜力学实验记录\n工况：${stages[r.stage].name}\n公式：${stages[r.stage].formula}\nφ=${r.params.phi}°\nβ=${r.params.beta}°\nc=${r.params.cohesion} kPa\nP=${r.params.load} kN\n容重=${r.params.unitWeight} kN/m³\n土重W=${r.weight.toFixed(4)} kN\nA=319 m²，L=56.8 m\nR=${r.resistance.toFixed(4)} kN\nT=${r.driving.toFixed(4)} kN\nFs=${r.fs.toFixed(6)}\n\n力学科普简化模型 · ${stages[r.stage].source}\n${stages[r.stage].note}\n`);toast('计算记录已生成');});
@@ -58,7 +61,7 @@ const samples=[['ZK1-1','1.71','6.3','26.1','29.8'],['ZK1-2','1.73','11.3','26.1
 function testsTable(){return `<div class="table-wrap"><table><caption class="sr-only">主要土工试验指标</caption><thead><tr><th scope="col">样本编号</th><th scope="col">湿密度 / g·cm⁻³</th><th scope="col">含水率 / %</th><th scope="col">快剪黏聚力 / kPa</th><th scope="col">快剪内摩擦角 / °</th></tr></thead><tbody>${samples.map(row=>'<tr>'+row.map((v,i)=>i===0?`<th scope="row">${v}</th>`:`<td>${v}</td>`).join('')+'</tr>').join('')}</tbody></table></div>`;}
 function evidence(type){
  $$('[data-evidence]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.evidence===type)));
- if(type==='tests')$('#evidence-content').innerHTML=testsTable()+`<div class="table-caption"><span>两处取土点 · 每处两组试验</span><span>基准参数 c = 28.85 kPa · φ = 29.6°</span></div><p class="source-note">通过含水率、密度与直接快剪试验，认识土体的物理状态和抗剪特性，再将其引入力学模型。</p>`;
+ if(type==='tests')$('#evidence-content').innerHTML=renderSamplePanel();
  if(type==='geometry')$('#evidence-content').innerHTML=`<div class="evidence-split"><button class="photo-open" data-image="image8.jpeg" data-caption="地形横剖面与假定滑动界面。"><img src="assets/image8.jpeg" alt="地形横剖面图" loading="lazy"></button><div><h3>把现场，简化成可分析的滑块。</h3><p>截面面积 A = 319 m²，滑面长度 L = 56.8 m，滑面倾角 β = 24.4°。将滑面上方的土体看作整体，比较沿坡方向的下滑项与抗滑项。</p><p>车辆荷载 P = 2284.5 kN。四个工况保持几何一致，依次改变界面黏聚、土重、车辆荷载与渗流作用，观察平衡如何变化。</p><button class="text-link" data-photo-load>查看荷载计算简图 ↗</button></div></div>`;
  if(type==='water')$('#evidence-content').innerHTML=`<div class="evidence-split"><button class="photo-open" data-image="image5.jpeg" data-caption="地形与降雨汇流示意 · 集雨面积 0.5 km²。"><img src="assets/image5.jpeg" alt="地形与降雨汇流示意图" loading="lazy"></button><div><h3>雨落下之后，水往哪里去？</h3><p>集雨面积 0.5 km²、月降雨量 740.5 mm，对应的降雨总体积为 500000 × 0.7405 = 370250 m³，约 37 万 m³。</p><p>从降雨到汇流，再到入渗与排出，水沿着地形与土体中的通道移动。产流、渗透和排水条件共同决定坡体内部的含水与水压力变化。</p><p>模型通过天然容重、饱和容重和浮容重三个取值，以及渗流作用项，展示水如何进入边坡的受力分析。</p></div></div>`;
 }
@@ -96,6 +99,8 @@ const mini=document.createElement('div');mini.className='mini-model';mini.innerH
 $('.curve-panel').insertBefore(mini,$('#stage-chart'));
 const modelStage=document.createElement('span');modelStage.id='model-stage';modelStage.textContent='初始平衡';$('.model-topline>span:first-child').append(' · ',modelStage);
 $('#formula-stages').innerHTML=stages.map((s,i)=>{const p=stageParameters(i),r=calculate(i);return `<article class="formula-stage"><header><span>工况 0${i+1} · ${s.source}</span><strong>Fₛ ≈ ${s.value}</strong></header><h3>${s.name}</h3><p class="formula-condition">${s.conditions}</p><dl><div><dt>黏聚力 c</dt><dd>${p.cohesion} kPa</dd></div><div><dt>车辆荷载 P</dt><dd>${fmt(p.load)} kN</dd></div><div><dt>${i===0?'天然容重 γ':i===3?'浮容重 γ′':'饱和容重 γsat'}</dt><dd>${p.unitWeight} kN/m³</dd></div></dl><p class="formula-weight">${s.weightFormula}</p><div class="force-equations"><p>${s.resistanceFormula}</p><p>${s.drivingFormula}</p></div><p class="stage-equation">${s.formula}</p><p class="formula-substitution">${s.substitution}</p><div class="formula-force-values"><span>R = ${fmt(r.resistance)} kN</span><span>T = ${fmt(r.driving)} kN</span></div>${i===3?'<p class="formula-footnote">γ′ = γsat − γw = 10.2 kN/m³，γ′ + γw = 20 kN/m³。</p>':''}</article>`;}).join('');
+setupWorkbench();
+setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 selectStage(0);evidence('tests');updateLab();
-try{const {createScene}=await import('./scene.js?v=20261017-2');scenes.push(createScene($('#scene')));scenes.push(createScene($('#explore-scene')));scenes[1].toggleForces(true);scenes[1].resetView(true);scenes.forEach(s=>s.setStage(currentStage));window.__sceneReady=true;}
+try{const {createScene}=await import('./scene.js?v=20261017-4');scenes.push(createScene($('#scene')));scenes.push(createScene($('#explore-scene')));scenes[1].toggleForces(true);scenes[1].resetView(true);scenes.forEach(s=>s.setStage(currentStage));window.__sceneReady=true;}
 catch(error){console.warn('3D unavailable',error);$$('.scene-fallback p').forEach(p=>p.textContent='当前设备暂不支持三维渲染，下方图表与计算器仍可使用。');$('#explore-scene').innerHTML='<img src="assets/section-fallback.svg" alt="边坡剖面示意：山体、道路、填方与潜在滑面">';window.__sceneReady=false;}
