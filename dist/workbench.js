@@ -1,4 +1,4 @@
-import {forceBreakdown,stabilityState} from './model.js?v=20261017-4';
+import {forceBreakdown,stabilityState,stageParameters} from './model.js?v=20261017-4';
 const $=s=>document.querySelector(s),n=v=>v.toLocaleString('zh-CN',{maximumFractionDigits:1}),deg=v=>v*Math.PI/180;
 const labels={phi:'内摩擦角 φ',beta:'滑面倾角 β',load:'车辆荷载 P',cohesion:'界面黏聚力 c'};
 let context;
@@ -14,11 +14,11 @@ const descriptions={
  water:'蓝色流线表示渗流工况。该工况使用浮容重与渗流作用项；流线用于解释机制，不是实测流速。'
 };
 function pt(x,y){return `${x.toFixed(2)},${y.toFixed(2)}`;}
-function diagram(p,r,state,changed){
+function diagram(p,r,state,changed,sharedScale){
  const b=deg(p.beta),e={x:Math.cos(b),y:Math.sin(b)},u={x:Math.sin(b),y:-Math.cos(b)},o={x:340,y:235};
  const point=(along,up)=>({x:o.x+e.x*along+u.x*up,y:o.y+e.y*along+u.y*up});
  const polygon=arr=>arr.map(a=>{const q=point(...a);return pt(q.x,q.y);}).join(' ');
- const a=point(-255,0),z=point(255,0),c=point(0,42),k=Math.max(r.resistance,r.driving,r.weight,1),len=v=>Math.max(7,v/k*118);
+ const a=point(-255,0),z=point(255,0),c=point(0,42),k=sharedScale||Math.max(r.resistance,r.driving,r.weight,1),len=v=>Math.max(7,v/k*118);
  const group=(key,body)=>`<g class="lab-part ${key===changed?'part-changed':''}" data-lab-part="${key}" role="button" tabindex="0" aria-label="了解${labels[key]||({weight:'土体自重',normal:'法向计算项',resistance:'抗滑项',driving:'下滑项',water:'渗流作用'})[key]}">${body}</g>`;
  const arrow=(key,start,dx,dy,color,text,tx=0,ty=0)=>{const end={x:start.x+dx,y:start.y+dy};return group(key,`<path d="M${pt(start.x,start.y)} L${pt(end.x,end.y)}" fill="none" stroke="${color}" stroke-width="4" marker-end="url(#lab-${key})"/><text x="${end.x+tx}" y="${end.y+ty}" fill="${color}">${text}</text>`);};
  const markers=[['load','#9f7435'],['weight','#465767'],['normal','#557e9c'],['resistance','#277965'],['driving','#bb4f40']].map(([id,color])=>`<marker id="lab-${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10Z" fill="${color}"/></marker>`).join('');
@@ -29,7 +29,14 @@ function diagram(p,r,state,changed){
 }
 export function renderWorkbench(stage,p,result,changed=''){
  const r=forceBreakdown(stage,p),base=forceBreakdown(stage),state=stabilityState(r.fs);context={stage,p,r};
- $('#lab-visual').innerHTML=diagram(p,r,state,changed);
+ const bp=stageParameters(stage),scale=Math.max(base.resistance,base.driving,base.weight,r.resistance,r.driving,r.weight,1);
+ $('#lab-visual').innerHTML=diagram(p,r,state,changed,scale);
+ $('#baseline-visual').innerHTML=diagram(bp,base,stabilityState(base.fs),'',scale).replace(/(id="|url\(#)lab-/g,'$1baseline-').replace(/role="button" tabindex="0"/g,'').replace(/class="lab-part /g,'class="baseline-part ');
+ $('#baseline-fs').textContent='Fₛ '+base.fs.toFixed(2);$('#adjusted-fs').textContent='Fₛ '+r.fs.toFixed(Math.abs(r.fs-1)<.005?4:2);
+ const delta=(v,b,d=1)=>Math.abs(v-b)<1e-7?'—':(v>b?'+':'−')+Math.abs(v-b).toFixed(d);
+ const metric=(label,v,b,unit,d=1)=>`<tr><th scope="row">${label}</th><td>${b.toFixed(d)}${unit}</td><td>${v.toFixed(d)}${unit}</td><td>${delta(v,b,d)}${Math.abs(v-b)<1e-7?'':unit}</td></tr>`;
+ const changes=Object.keys(labels).filter(k=>Math.abs(p[k]-bp[k])>1e-7).map(k=>`${labels[k]}由 ${bp[k]} ${k==='load'?'kN':k==='cohesion'?'kPa':'°'} 调至 ${p[k]} ${k==='load'?'kN':k==='cohesion'?'kPa':'°'}`);
+ $('#baseline-comparison').innerHTML=`<div class="comparison-summary" role="status"><b>${changes.length?'调整后的变化':'同工况 · 基准对照'}</b><p>${changes.length?changes.join('；')+'。':'两侧采用相同参数。拖动任一可用滑块，观察受力图与下表的变化。'}${changes.length?`Fₛ 从 ${base.fs.toFixed(3)} 变为 ${r.fs.toFixed(3)}；${state.message}`:''}</p></div><div class="table-wrap"><table><caption class="sr-only">同工况调整前后比较</caption><thead><tr><th scope="col">比较项目</th><th scope="col">工况基准</th><th scope="col">当前调整</th><th scope="col">变化量</th></tr></thead><tbody>${metric('安全系数 Fₛ',r.fs,base.fs,'',3)}${metric('抗滑项 R',r.resistance,base.resistance,' kN')}${metric('下滑项 T',r.driving,base.driving,' kN')}<tr><th scope="row">模型状态</th><td>${stabilityState(base.fs).label}</td><td colspan="2" class="comparison-state ${state.level}">${state.label}</td></tr></tbody></table></div>`;
  const warning=$('#lab-warning');warning.className='lab-warning '+state.level;warning.innerHTML=`<span class="warning-icon" aria-hidden="true">${state.level==='danger'?'⚠':state.level==='critical'?'!':'✓'}</span><div><strong>${state.label}</strong><p>${state.message}</p></div>`;
  const margin=state.level==='critical'?0:(r.resistance-r.driving)/r.driving*100;
  $('#force-compare').innerHTML=`<div><span>抗滑项 R</span><i><b style="width:${Math.min(100,r.resistance/Math.max(r.resistance,r.driving)*100)}%"></b></i><strong>${n(r.resistance)} kN</strong></div><div><span>下滑项 T</span><i><b style="width:${Math.min(100,r.driving/Math.max(r.resistance,r.driving)*100)}%"></b></i><strong>${n(r.driving)} kN</strong></div><p>${margin>=0?'抗滑余量':'抗滑缺口'} <b>${Math.abs(margin).toFixed(1)}%</b> <small>相对于下滑项；不是事故概率</small></p>`;
@@ -50,6 +57,10 @@ export function renderWorkbench(stage,p,result,changed=''){
 }
 export function setupWorkbench(){
  const host=$('#lab-visual');
+ const pair=document.createElement('div');pair.className='lab-model-pair';host.before(pair);pair.innerHTML='<article><header><span>工况基准 · 固定参照</span><b id="baseline-fs"></b></header><div id="baseline-visual" class="lab-visual"></div></article><article class="adjusted-model"><header><span>当前调整 · 可点选</span><b id="adjusted-fs"></b></header></article>';pair.lastElementChild.append(host);
+ const compare=document.createElement('div');compare.id='baseline-comparison';$('#lab-part-explainer').after(compare);
+ $('.lab-visual-heading').innerHTML='<span>基准与调整 · 同尺度受力对照</span><button type="button" class="text-link" id="toggle-model-pair" aria-pressed="false">放大当前模型 ↗</button>';
+ $('#toggle-model-pair').addEventListener('click',e=>{const expanded=pair.classList.toggle('current-only');e.currentTarget.setAttribute('aria-pressed',String(expanded));e.currentTarget.textContent=expanded?'恢复并排对照 ↔':'放大当前模型 ↗';});
  const warning=$('#lab-warning');warning.parentElement.prepend(warning);
  for(const key of Object.keys(labels)){const trace=document.createElement('div');trace.id='trace-'+key;trace.className='parameter-trace';$('#'+key).closest('label').append(trace);}
  const explain=e=>{const part=e.target.closest('[data-lab-part]');if(part)$('#lab-part-explainer').textContent=descriptions[part.dataset.labPart];};

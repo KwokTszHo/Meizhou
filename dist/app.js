@@ -1,8 +1,9 @@
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
-import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-5';
+import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-11';
 import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-10';
-import {renderPaper} from './reader.js?v=20261017-10';
+import {renderPaper} from './reader.js?v=20261017-11';
+import {setupLearning} from './learning.js?v=20261017-11';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
@@ -48,7 +49,6 @@ function updatePlayback(){const active=playing!==null;$('#play-stages').textCont
 function stopPlayback(){clearInterval(playing);playing=null;updatePlayback();}
 $('#play-stages').addEventListener('click',()=>{if(playing!==null){stopPlayback();return;}playing=setInterval(()=>selectStage((currentStage+1)%4),2800);selectStage(0);updatePlayback();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
-$('#start-tour').addEventListener('click',()=>{selectStage(0);toast('从四个工况开始：选节点看变化，再进入实验室亲手计算。');});
 $('#see-model').addEventListener('click',e=>{e.preventDefault();const model=$('#explore-scene');scenes[1]?.resetView(true);scenes[1]?.toggleForces(true);history.replaceState(null,'','#explore-scene');model.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});model.focus({preventScroll:true});model.parentElement.classList.add('model-highlight');setTimeout(()=>model.parentElement.classList.remove('model-highlight'),1800);});
 $('.menu-toggle').addEventListener('click',()=>{const open=$('.header nav').classList.toggle('open');$('.menu-toggle').setAttribute('aria-expanded',String(open));});
 $$('.header nav a').forEach(a=>a.addEventListener('click',()=>{$('.header nav').classList.remove('open');$('.menu-toggle').setAttribute('aria-expanded','false');}));
@@ -81,7 +81,8 @@ let paperLoaded=false;
 $('#read-paper').addEventListener('click',async()=>{
  $('#reader-dialog').showModal();if(paperLoaded)return;$('#reader-content').textContent='正在读取论文…';
  try{const response=await fetch('assets/paper-content.json');if(!response.ok)throw Error('load');const data=await response.json(),container=$('#reader-content');container.replaceChildren();
- renderPaper(data,container,openPhoto);paperLoaded=true;
+ const math=await fetch('assets/paper-math.json?v=20261017-11').then(r=>r.ok?r.json():{}).catch(()=>({}));
+ renderPaper(data,container,openPhoto,math);paperLoaded=true;
  }catch{$('#reader-content').innerHTML='<p>在线正文暂时无法读取，可以下载完整论文阅读。</p><a class="button primary" href="assets/paper-original.docx" download>下载论文 ↓</a>';}
 });
 const publicUrl=new URL('./',location.href).href;
@@ -104,6 +105,7 @@ $('.curve-panel').insertBefore(mini,$('#stage-chart'));
 const modelStage=document.createElement('span');modelStage.id='model-stage';modelStage.textContent='初始平衡';$('.model-topline>span:first-child').append(' · ',modelStage);
 $('#formula-stages').innerHTML=stages.map((s,i)=>{const p=stageParameters(i),r=calculate(i);return `<article class="formula-stage"><header><span>工况 0${i+1} · ${s.source}</span><strong>Fₛ ≈ ${s.value}</strong></header><h3>${s.name}</h3><p class="formula-condition">${s.conditions}</p><dl><div><dt>黏聚力 c</dt><dd>${p.cohesion} kPa</dd></div><div><dt>车辆荷载 P</dt><dd>${fmt(p.load)} kN</dd></div><div><dt>${i===0?'天然容重 γ':i===3?'浮容重 γ′':'饱和容重 γsat'}</dt><dd>${p.unitWeight} kN/m³</dd></div></dl><p class="formula-weight">${s.weightFormula}</p><div class="force-equations"><p>${s.resistanceFormula}</p><p>${s.drivingFormula}</p></div><p class="stage-equation">${s.formula}</p><p class="formula-substitution">${s.substitution}</p><div class="formula-force-values"><span>R = ${fmt(r.resistance)} kN</span><span>T = ${fmt(r.driving)} kN</span></div>${i===3?'<p class="formula-footnote">γ′ = γsat − γw = 10.2 kN/m³，γ′ + γw = 20 kN/m³。</p>':''}</article>`;}).join('');
 setupWorkbench();
+setupLearning({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto,stopPlayback});
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 selectStage(0);evidence('tests');updateLab();
 function showSceneError(host,error){
