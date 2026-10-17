@@ -1,0 +1,5 @@
+[build]
+  command = "echo 'No build step required; publishing the prebuilt static site.'"
+  publish = "dist"
+
+# The site uses in-page anchors and hash navigation, so it needs no SPA fallback.
