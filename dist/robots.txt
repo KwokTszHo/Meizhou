@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://guitu-mechanics-guo.famousberry64.chatgpt.site/sitemap.xml
