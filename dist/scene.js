@@ -1,5 +1,5 @@
-import * as THREE from 'three';
-import {OrbitControls} from './vendor/OrbitControls.js';
+import * as THREE from './vendor/three.module.js?v=20261017-8';
+import {OrbitControls} from './vendor/OrbitControls.js?v=20261017-8';
 import {forceBreakdown} from './model.js?v=20261017-4';
 
 export function createScene(host){
@@ -8,7 +8,6 @@ export function createScene(host){
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.setClearColor(0x0b1517,0);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.domElement.setAttribute('aria-hidden','true');host.prepend(renderer.domElement);
-  host.querySelector('.scene-fallback').remove();
   const scene=new THREE.Scene();
   const camera=new THREE.PerspectiveCamera(36,1,.1,180);
   const controls=new OrbitControls(camera,renderer.domElement);
@@ -118,5 +117,7 @@ export function createScene(host){
   renderer.domElement.addEventListener('pointerleave',restoreHover);
   renderer.domElement.addEventListener('pointerdown',event=>{down={x:event.clientX,y:event.clientY};});
   renderer.domElement.addEventListener('pointerup',event=>{if(down&&Math.hypot(event.clientX-down.x,event.clientY-down.y)<6){const found=hit(event);if(found){focusPart(found.key);host.dispatchEvent(new CustomEvent('model-part-select',{detail:found.key,bubbles:true}));}}down=null;});
+  host.querySelector('.scene-fallback')?.remove();
+  host.dataset.renderer='webgl';
   return {setStage,resetView,focusPart,toggleForces(value){arrows.visible=value;},renderer};
 }

@@ -102,5 +102,19 @@ $('#formula-stages').innerHTML=stages.map((s,i)=>{const p=stageParameters(i),r=c
 setupWorkbench();
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 selectStage(0);evidence('tests');updateLab();
-try{const {createScene}=await import('./scene.js?v=20261017-5');scenes.push(createScene($('#scene')));scenes.push(createScene($('#explore-scene')));scenes[1].toggleForces(true);scenes[1].resetView(true);scenes.forEach(s=>s.setStage(currentStage));window.__sceneReady=true;}
-catch(error){console.warn('3D unavailable',error);$$('.scene-fallback p').forEach(p=>p.textContent='当前设备暂不支持三维渲染，下方图表与计算器仍可使用。');$('#explore-scene').innerHTML='<img src="assets/section-fallback.svg" alt="边坡剖面示意：山体、道路、填方与潜在滑面">';window.__sceneReady=false;}
+function showSceneError(host,error){
+ console.warn('3D loading failed',host.id,error);host.dataset.renderer='unavailable';
+ host.querySelectorAll('canvas,.scene-fallback').forEach(node=>node.remove());
+ const fallback=document.createElement('div');fallback.className='scene-fallback scene-error';
+ fallback.innerHTML='<img src="assets/section-fallback.svg" alt="边坡剖面：山体、道路、填方与潜在滑面"><p>三维模型未能加载，请刷新重试。图表与参数计算仍可使用。</p><button class="small-button" type="button">重新加载模型 ↻</button>';
+ fallback.querySelector('button').addEventListener('click',()=>location.reload());host.append(fallback);
+}
+const sceneHosts=[$('#scene'),$('#explore-scene')];
+try{
+ const {createScene}=await import('./scene.js?v=20261017-8');
+ for(const [index,host] of sceneHosts.entries()){
+  try{scenes[index]=createScene(host);scenes[index].setStage(currentStage);if(index===1){scenes[index].toggleForces(true);scenes[index].resetView(true);}}
+  catch(error){showSceneError(host,error);}
+ }
+}catch(error){sceneHosts.forEach(host=>showSceneError(host,error));}
+window.__sceneReady=sceneHosts.every((host,index)=>!!scenes[index]);
