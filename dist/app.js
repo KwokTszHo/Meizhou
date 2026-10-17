@@ -3,7 +3,8 @@ import qrcode from './vendor/qrcode.js';
 import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-11';
 import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-10';
 import {renderPaper} from './reader.js?v=20261017-11';
-import {setupLearning} from './learning.js?v=20261017-11';
+import {setupLearning} from './learning.js?v=20261017-12';
+import {setupAntecedents} from './antecedents.js?v=20261017-12';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
@@ -106,6 +107,7 @@ const modelStage=document.createElement('span');modelStage.id='model-stage';mode
 $('#formula-stages').innerHTML=stages.map((s,i)=>{const p=stageParameters(i),r=calculate(i);return `<article class="formula-stage"><header><span>工况 0${i+1} · ${s.source}</span><strong>Fₛ ≈ ${s.value}</strong></header><h3>${s.name}</h3><p class="formula-condition">${s.conditions}</p><dl><div><dt>黏聚力 c</dt><dd>${p.cohesion} kPa</dd></div><div><dt>车辆荷载 P</dt><dd>${fmt(p.load)} kN</dd></div><div><dt>${i===0?'天然容重 γ':i===3?'浮容重 γ′':'饱和容重 γsat'}</dt><dd>${p.unitWeight} kN/m³</dd></div></dl><p class="formula-weight">${s.weightFormula}</p><div class="force-equations"><p>${s.resistanceFormula}</p><p>${s.drivingFormula}</p></div><p class="stage-equation">${s.formula}</p><p class="formula-substitution">${s.substitution}</p><div class="formula-force-values"><span>R = ${fmt(r.resistance)} kN</span><span>T = ${fmt(r.driving)} kN</span></div>${i===3?'<p class="formula-footnote">γ′ = γsat − γw = 10.2 kN/m³，γ′ + γw = 20 kN/m³。</p>':''}</article>`;}).join('');
 setupWorkbench();
 setupLearning({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto,stopPlayback});
+setupAntecedents({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto});
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 selectStage(0);evidence('tests');updateLab();
 function showSceneError(host,error){

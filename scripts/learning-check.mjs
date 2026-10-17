@@ -7,7 +7,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}});page.on('pageerror',e=>errors.push(e.message));await page.goto(url,{waitUntil:'networkidle'});await page.waitForFunction(()=>window.__sceneReady===true);
  await page.locator('#start-tour').click();assert.equal(await page.locator('#reading-guide').isVisible(),true);
  for(let i=0;i<5;i++){
-  assert.ok((await page.locator('#guide-count').innerText()).includes(`${i+1} / 5`));
+  assert.equal(await page.locator('#reading-guide').getAttribute('data-step'),String(i));
   const id=['story','model-comparison','explore','lab','care'][i];const heading=await page.locator('#'+id+' h2').boundingBox(),dock=await page.locator('#reading-guide').boundingBox();assert.ok(heading.y>=dock.y+dock.height,`Guide covers ${id}`);
   if(i===1)await page.screenshot({path:'.local/v11-guide.png'});
   if(i===3)assert.equal(await page.locator('#lab-stage').inputValue(),'2');
