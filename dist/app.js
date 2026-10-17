@@ -1,7 +1,8 @@
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
 import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-5';
-import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-5';
+import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-9';
+import {renderPaper} from './reader.js?v=20261017-9';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
@@ -71,13 +72,7 @@ let paperLoaded=false;
 $('#read-paper').addEventListener('click',async()=>{
  $('#reader-dialog').showModal();if(paperLoaded)return;$('#reader-content').textContent='正在读取论文…';
  try{const response=await fetch('assets/paper-content.json');if(!response.ok)throw Error('load');const data=await response.json(),container=$('#reader-content');container.replaceChildren();
- let inTable=false;
- for(const p of data){
-  if(p.text==='编号'){inTable=true;const table=document.createElement('div');table.innerHTML=testsTable();container.append(table);continue;}
-  if(inTable){if(p.text.startsWith('对两个取土点'))inTable=false;else continue;}
-  if(p.text){const el=document.createElement(p.text==='用一条安全系数曲线解码梅大高速塌方的秘密'?'h2':/^\d+[、.]\d*、?/.test(p.text)&&p.text.length<40?'h3':'p');el.textContent=p.text;container.append(el);}
-  for(const src of p.images){const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');const filename=src.split('/').pop().replace('.emf','.jpg');image.src='assets/'+filename;image.alt='研究插图 '+filename;image.loading='lazy';caption.textContent='研究插图 · 点击放大';figure.append(image,caption);figure.style.cursor='zoom-in';figure.addEventListener('click',()=>openPhoto(filename,'研究插图'));container.append(figure);}
- }paperLoaded=true;
+ renderPaper(data,container,openPhoto);paperLoaded=true;
  }catch{$('#reader-content').innerHTML='<p>在线正文暂时无法读取，可以下载完整论文阅读。</p><a class="button primary" href="assets/paper-original.docx" download>下载论文 ↓</a>';}
 });
 const publicUrl=new URL('./',location.href).href;
@@ -118,3 +113,8 @@ try{
  }
 }catch(error){sceneHosts.forEach(host=>showSceneError(host,error));}
 window.__sceneReady=sceneHosts.every((host,index)=>!!scenes[index]);
+
+const careRows=$$('.care-rows details');
+function syncCare(){const allOpen=careRows.every(row=>row.open);$('.care-toolbar .interaction-hint').textContent=allOpen?'点击标题可收起 · 内容已全部展开':'点击标题切换 · 可逐项展开';const button=$('[data-toggle-care]');button.textContent=allOpen?'全部收起 −':'全部展开 ＋';button.setAttribute('aria-expanded',String(allOpen));careRows.forEach(row=>row.querySelector('.care-state').textContent=row.open?'收起 −':'展开 ＋');}
+careRows.forEach(row=>row.addEventListener('toggle',syncCare));
+$('[data-toggle-care]').addEventListener('click',()=>{const open=!careRows.every(row=>row.open);careRows.forEach(row=>row.open=open);syncCare();});syncCare();
