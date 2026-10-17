@@ -1,7 +1,7 @@
-import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-4';
+import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
-import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-4';
-import {renderSamplePanel,setupEngineering,updateTwinReadout} from './engineering.js?v=20261017-4';
+import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-5';
+import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-5';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
@@ -33,7 +33,7 @@ function updateLab(changed=''){
  $('#lab-insight').textContent=`${Math.abs(diff)<.00001?'当前为此工况的基准参数。':`相较此工况基准值，Fₛ ${diff>0?'增加':'减少'} ${Math.abs(diff).toFixed(2)}。`}${state.message}${r.fs>3?'结果超过下方刻度上限，数值显示完整。':''}`;
  $('#lab-control-note').textContent=stage===0?'天然含水条件：黏聚与摩擦共同抗滑，计入车辆荷载。':stage===1?'滑动界面取 c = 0，低车流工况取 P = 0；这两个参数已同步置零。':'滑动界面取 c = 0，车辆荷载可调。'+(stage===3?'此工况采用浮容重与渗流作用项。':'土重采用饱和容重计算。');
  $('#lab-params').innerHTML=`<div><span>${stage===0?'天然容重 γ':stage===3?'浮容重 γ′':'饱和容重 γsat'}</span><strong>${p.unitWeight.toFixed(1)} <small>kN/m³</small></strong></div><div><span>当前土重 W${stage===0?'₁':stage===3?'₃':'₂'}</span><strong>${fmt(r.weight)} <small>kN</small></strong></div><div><span>截面面积 A</span><strong>319 <small>m²</small></strong></div><div><span>滑面长度 L</span><strong>56.8 <small>m</small></strong></div>${stage===3?'<p>γ′ = 20 − 9.8 = 10.2 kN/m³ · 渗流作用系数 = 0.51</p>':''}`;
- renderWorkbench(stage,p,r,changed);updateTwinReadout(r.fs,stages[stage].name);
+ renderWorkbench(stage,p,r,changed);
  return {stage,params:p,...r};
 }
 function download(name,text){const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -102,5 +102,5 @@ $('#formula-stages').innerHTML=stages.map((s,i)=>{const p=stageParameters(i),r=c
 setupWorkbench();
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 selectStage(0);evidence('tests');updateLab();
-try{const {createScene}=await import('./scene.js?v=20261017-4');scenes.push(createScene($('#scene')));scenes.push(createScene($('#explore-scene')));scenes[1].toggleForces(true);scenes[1].resetView(true);scenes.forEach(s=>s.setStage(currentStage));window.__sceneReady=true;}
+try{const {createScene}=await import('./scene.js?v=20261017-5');scenes.push(createScene($('#scene')));scenes.push(createScene($('#explore-scene')));scenes[1].toggleForces(true);scenes[1].resetView(true);scenes.forEach(s=>s.setStage(currentStage));window.__sceneReady=true;}
 catch(error){console.warn('3D unavailable',error);$$('.scene-fallback p').forEach(p=>p.textContent='当前设备暂不支持三维渲染，下方图表与计算器仍可使用。');$('#explore-scene').innerHTML='<img src="assets/section-fallback.svg" alt="边坡剖面示意：山体、道路、填方与潜在滑面">';window.__sceneReady=false;}
