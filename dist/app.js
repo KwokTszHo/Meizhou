@@ -1,3 +1,4 @@
+import {setupPolish} from './polish.js?v=20261018-19';
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
 import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261018-18';
@@ -119,7 +120,7 @@ setupLearning({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto,stopPla
 setupAntecedents({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto});
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 setupStudy({selectStage:i=>{stopPlayback();selectStage(i);},showEvidence:evidence,openPhoto});
-setupMeasures({openPhoto});setupInteractionFeedback();setupLabFeedback();
+setupMeasures({openPhoto});setupInteractionFeedback();setupLabFeedback();setupPolish();
 selectStage(0);evidence('tests');updateLab();
 function showSceneError(host,error){
  console.warn('3D loading failed',host.id,error);host.dataset.renderer='unavailable';
@@ -130,7 +131,7 @@ function showSceneError(host,error){
 }
 const sceneHosts=[$('#scene'),$('#explore-scene')];
 try{
- const {createScene}=await import('./scene.js?v=20261018-18');
+ const {createScene}=await import('./scene.js?v=20261018-19');
  for(const [index,host] of sceneHosts.entries()){
   try{scenes[index]=createScene(host);scenes[index].setStage(currentStage);if(index===1){scenes[index].toggleForces(true);scenes[index].resetView(true);}}
   catch(error){showSceneError(host,error);}

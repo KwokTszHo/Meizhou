@@ -107,7 +107,7 @@ export function createScene(host){
   const labels=[...host.querySelectorAll('[data-position]')].map(el=>({el,pos:new THREE.Vector3(...el.dataset.position.split(',').map(Number))}));
   function setStage(value){stage=value;crack.visible=value>0;pond.visible=value>0;rain.visible=value>0;water.visible=value===3;cars.visible=value!==1;U.visible=value===3;const r=forceBreakdown(value),scale=5.2/Math.max(r.resistance,r.driving);R.setLength(Math.max(.4,r.resistance*scale),.4,.2);T.setLength(Math.max(.4,r.driving*scale),.4,.2);dirt.color.setHex(value===3?0x9d9e84:0xc3a079);host.dataset.stage=value;refreshSelection();}
   function resetView(section=false){controls.target.set(0,2.3,0);camera.position.set(...(section?[0,4,47]:[27,21,31]));controls.update();}
-  function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  function resize(){const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(18))*Math.max(1,1.4/camera.aspect)));camera.updateProjectionMatrix();}
   const ro=new ResizeObserver(resize);ro.observe(host);resetView();resize();setStage(0);
   const observer=new IntersectionObserver(e=>{visible=e[0].isIntersecting;},{rootMargin:'100px'});observer.observe(host);
   function frame(now){requestAnimationFrame(frame);if(!visible||document.hidden||now-last<32)return;const dt=Math.min((now-last)/1000,.05);last=now;clock+=dt;controls.update();
