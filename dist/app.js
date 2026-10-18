@@ -5,7 +5,7 @@ import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-15
 import {renderPaper} from './reader.js?v=20261018-15';
 import {setupLearning} from './learning.js?v=20261017-12';
 import {setupAntecedents} from './antecedents.js?v=20261018-15';
-import {setupStudy} from './study.js?v=20261018-15';
+import {setupStudy} from './study.js?v=20261018-16';
 import {setupMeasures} from './measures.js?v=20261018-15';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer,playbackFrame=null,stageStarted=0,playbackFraction=0;
