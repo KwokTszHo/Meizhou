@@ -1,14 +1,16 @@
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
-import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-11';
+import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261018-18';
 import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-15';
 import {renderPaper} from './reader.js?v=20261018-15';
 import {setupLearning} from './learning.js?v=20261017-12';
-import {setupAntecedents} from './antecedents.js?v=20261018-15';
+import {setupAntecedents} from './antecedents.js?v=20261018-18';
 import {setupStudy} from './study.js?v=20261018-16';
-import {setupMeasures} from './measures.js?v=20261018-17';
+import {setupMeasures} from './measures.js?v=20261018-18';
+import {setupLabFeedback} from './lab-feedback.js?v=20261018-18';
 import {setupInteractionFeedback} from './interactions.js?v=20261018-17';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let playbackStopReason='initial';
 let currentStage=0,scenes=[],playing=null,toastTimer,playbackFrame=null,stageStarted=0,playbackFraction=0;
 const stageDuration=2000;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
@@ -45,16 +47,16 @@ function updateLab(changed=''){
  return {stage,params:p,...r};
 }
 function download(name,text){const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-$('#lab-form').addEventListener('input',e=>{if(e.target.matches('input[type="range"]')){stopPlayback();updateLab(e.target.id);}});
-$('#lab-stage').addEventListener('change',()=>{stopPlayback();selectStage(+$('#lab-stage').value);});
-$('#lab-form').addEventListener('reset',e=>{e.preventDefault();stopPlayback();selectStage(currentStage);toast('已恢复当前工况的基准参数');});
+$('#lab-form').addEventListener('input',e=>{if(e.target.matches('input[type="range"]')){stopPlayback('manual');updateLab(e.target.id);}});
+$('#lab-stage').addEventListener('change',()=>{stopPlayback('manual');selectStage(+$('#lab-stage').value);});
+$('#lab-form').addEventListener('reset',e=>{e.preventDefault();stopPlayback('manual');selectStage(currentStage);toast('已恢复当前工况的基准参数');});
 $('#save-experiment').addEventListener('click',()=>{const r=updateLab();download('归途之下-计算记录.txt',`归途之下｜力学实验记录\n工况：${stages[r.stage].name}\n公式：${stages[r.stage].formula}\nφ=${r.params.phi}°\nβ=${r.params.beta}°\nc=${r.params.cohesion} kPa\nP=${r.params.load} kN\n容重=${r.params.unitWeight} kN/m³\n土重W=${r.weight.toFixed(4)} kN\nA=319 m²，L=56.8 m\nR=${r.resistance.toFixed(4)} kN\nT=${r.driving.toFixed(4)} kN\nFs=${r.fs.toFixed(6)}\n\n力学科普简化模型 · ${stages[r.stage].source}\n${stages[r.stage].note}\n`);toast('计算记录已生成');});
 document.addEventListener('click',e=>{const b=e.target.closest('.stage-tabs button[data-stage],.chart-point[data-stage]');if(b){stopPlayback();selectStage(+b.dataset.stage);}});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('chart-point')){e.preventDefault();stopPlayback();selectStage(+e.target.dataset.stage);}});
 function paintPlaybackProgress(){const value=(currentStage+playbackFraction)/4*100,percent=Math.floor(value),track=$('#case-playback-track');$('#playback-progress').style.width=value+'%';if(track.getAttribute('aria-valuenow')!==String(percent)){track.setAttribute('aria-valuenow',String(percent));track.setAttribute('aria-valuetext',`${percent}% · 工况 ${currentStage+1} / 4`);$('#playback-percent').textContent=String(percent).padStart(2,'0')+'%';}}
 function animatePlayback(){playbackFrame=null;if(playing===null)return;playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);paintPlaybackProgress();playbackFrame=requestAnimationFrame(animatePlayback);}
-function updatePlayback(){const active=playing!==null;$('#play-stages').textContent=active?'Ⅱ 暂停自动播放':'▷ 自动播放四个工况';$('#play-stages').setAttribute('aria-pressed',String(active));$('#playback-status').textContent=`${active?'自动循环 · 每 2 秒切换':'当前工况'} · 0${currentStage+1} / 04 · ${stages[currentStage].name}`;paintPlaybackProgress();$('.mini-model').classList.toggle('is-playing',active);if(active&&playbackFrame===null)playbackFrame=requestAnimationFrame(animatePlayback);}
-function stopPlayback(){if(playing!==null)playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);clearInterval(playing);playing=null;if(playbackFrame!==null)cancelAnimationFrame(playbackFrame);playbackFrame=null;updatePlayback();}
+function updatePlayback(){const active=playing!==null;$('#play-stages').textContent=active?'Ⅱ 暂停自动播放':'▷ 自动播放四个工况';$('#play-stages').setAttribute('aria-pressed',String(active));$('#playback-status').textContent=`${active?'自动循环 · 每 2 秒切换':'当前工况'} · 0${currentStage+1} / 04 · ${stages[currentStage].name}`;paintPlaybackProgress();$('.mini-model').classList.toggle('is-playing',active);if(active&&playbackFrame===null)playbackFrame=requestAnimationFrame(animatePlayback);document.dispatchEvent(new CustomEvent('stage-playback-change',{detail:{active,stage:currentStage,reason:playbackStopReason}}));}
+function stopPlayback(reason='paused'){if(reason==='manual'&&playing===null&&playbackStopReason!=='manual')reason='independent';playbackStopReason=reason;if(playing!==null)playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);clearInterval(playing);playing=null;if(playbackFrame!==null)cancelAnimationFrame(playbackFrame);playbackFrame=null;updatePlayback();}
 $('#play-stages').addEventListener('click',()=>{if(playing!==null){stopPlayback();return;}playing=setInterval(()=>selectStage((currentStage+1)%4),stageDuration);selectStage(0);updatePlayback();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
 $('#see-model').addEventListener('click',e=>{e.preventDefault();const model=$('#explore-scene');scenes[1]?.resetView(true);scenes[1]?.toggleForces(true);history.replaceState(null,'','#explore-scene');model.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});model.focus({preventScroll:true});model.parentElement.classList.add('model-highlight');setTimeout(()=>model.parentElement.classList.remove('model-highlight'),1800);});
@@ -117,7 +119,7 @@ setupLearning({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto,stopPla
 setupAntecedents({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto});
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 setupStudy({selectStage:i=>{stopPlayback();selectStage(i);},showEvidence:evidence,openPhoto});
-setupMeasures({openPhoto});setupInteractionFeedback();
+setupMeasures({openPhoto});setupInteractionFeedback();setupLabFeedback();
 selectStage(0);evidence('tests');updateLab();
 function showSceneError(host,error){
  console.warn('3D loading failed',host.id,error);host.dataset.renderer='unavailable';
@@ -128,7 +130,7 @@ function showSceneError(host,error){
 }
 const sceneHosts=[$('#scene'),$('#explore-scene')];
 try{
- const {createScene}=await import('./scene.js?v=20261017-10');
+ const {createScene}=await import('./scene.js?v=20261018-18');
  for(const [index,host] of sceneHosts.entries()){
   try{scenes[index]=createScene(host);scenes[index].setStage(currentStage);if(index===1){scenes[index].toggleForces(true);scenes[index].resetView(true);}}
   catch(error){showSceneError(host,error);}

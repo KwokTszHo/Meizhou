@@ -1,4 +1,4 @@
-import {renderLandscape,roadPoint,roadCorners,groundHeight,pondPath} from './landscape.js?v=20261018-15';
+import {renderLandscape,roadPoint,roadCorners,groundHeight,pondPath} from './landscape.js?v=20261018-18';
 export {roadPoint,roadCorners};
 export const segmentSeconds=3;
 export const rainSurface=groundHeight;
@@ -14,7 +14,7 @@ export function createCauseMotion(root,{onMode,onProgress}){
  let clock=0,elapsed=0,mode=0,wet=.3,targetWet=.52,running=false,last=0,frameId=null,cycle=1;
  function flow(nodes,routes,speed){for(const [i,node]of nodes.entries()){const route=routes[+node.dataset.flow],t=(clock*speed+(+node.dataset.offset))%1,point=route.el.getPointAtLength(route.length*t);node.setAttribute('cx',f(point.x));node.setAttribute('cy',f(point.y));node.style.opacity=String(.25+.7*Math.sin(Math.PI*t));}}
  function render(){
-  for(const c of cars){const phase=(clock/7.8+c.offset)%1,p=carPose(c.lane,phase);c.el.style.transform=`matrix(${p.a},${p.b},${p.c},${p.d},${p.e},${p.f})`;c.el.style.opacity=String(Math.min(1,phase/.045,(1-phase)/.045));}
+  for(const c of cars){const phase=(clock/7.8+c.offset)%1,p=carPose(c.lane,phase);c.el.style.transform=`translate(${p.e}px,${p.f}px)`;c.el.style.opacity=String(Math.min(1,phase/.045,(1-phase)/.045));}
   for(const d of drops){const phase=(clock/1.05+d.offset)%1,y=d.top+(d.ground-d.top-11)*phase,x=d.x+9*(1-phase);d.drop.style.transform=`translate(${f(x)}px,${f(y)}px)`;d.drop.style.opacity=String(.16+.52*Math.sin(Math.PI*phase));d.splash.style.opacity=phase>.83?String((1-phase)/.17*.45):'0';}
   flow(beads,runoff,.32);flow(seepBeads,seep,.18);$('.cause-wet-zone').style.opacity=String(wet*.75);$('#cause-wetting-front ellipse').setAttribute('rx',f(60+wet*340));$('#cause-wetting-front ellipse').setAttribute('ry',f(25+wet*155));$('.cause-runoff-beads').style.opacity=String(.55+wet*.4);
   $('#cause-pond-water').setAttribute('d',pondPath(wet));

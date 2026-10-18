@@ -53,7 +53,16 @@ export function createScene(host){
   box(-.68,4.31,0,.035,.01,14,roadLine);box(2.78,4.31,0,.035,.01,14,roadLine);
   const steel=mat(0x94a78f,{metalness:.4,roughness:.6});
   for(const x of[-.9,3]){box(x,4.59,0,.065,.09,14,steel);for(let z=-6.5;z<=7;z+=1.2)box(x,4.44,z,.05,.4,.05,steel);}
-  const cars=new THREE.Group();world.add(cars);for(let i=0;i<7;i++){const x=i%2===0?.1:2;const z=-6+i*1.85;const body=box(x,4.52,z,.52,.28,.9,mat([0xdddcc8,0x8faaa4,0xb89670][i%3]),cars);box(x,4.73,z-.05,.41,.2,.48,mat(0x71877e),cars);}
+  const cars=new THREE.Group();world.add(cars);
+  const tireMaterial=mat(0x252e2b),hubMaterial=mat(0x9ba79e,{metalness:.35}),glassMaterial=mat(0x658384,{metalness:.2,roughness:.3});
+  for(let i=0;i<7;i++){
+    const car=new THREE.Group();car.position.set(i%2===0?.1:2,4.3,-6+i*1.85);if(i%2)car.rotation.y=Math.PI;cars.add(car);
+    const paint=mat([0xdddcc8,0x8faaa4,0xb89670][i%3],{roughness:.45});
+    box(0,.23,0,.52,.22,.94,paint,car);box(0,.41,-.04,.4,.2,.47,glassMaterial,car);box(0,.52,-.04,.4,.035,.41,paint,car);
+    box(0,.12,0,.43,.07,.8,tireMaterial,car);
+    for(const x of[-.26,.26])for(const z of[-.3,.3]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.115,.115,.07,12),tireMaterial);wheel.rotation.z=Math.PI/2;wheel.position.set(x,.12,z);wheel.castShadow=true;car.add(wheel);const hub=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,.075,10),hubMaterial);hub.rotation.z=Math.PI/2;hub.position.copy(wheel.position);car.add(hub);}
+    for(const x of[-.17,.17]){box(x,.25,.475,.09,.055,.015,mat(0xf2e5bb),car);box(x,.25,-.475,.09,.05,.015,mat(0x9c5543),car);}
+  }
   const forest=new THREE.Group();world.add(forest);const trunkMat=mat(0x55503b),leafMats=[0x2c4c36,0x3d593c,0x536344,0x354d35].map(c=>mat(c));
   for(let i=0;i<108;i++){
     const x=-13.7+rand()*11.8,z=-6.6+rand()*12.6,y=hillHeight(x,z),s=.48+rand()*.64;
