@@ -1,4 +1,4 @@
-import {causeScene,createCauseMotion} from './cause-motion.js?v=20261017-13';
+import {causeScene,createCauseMotion} from './cause-motion.js?v=20261018-14';
 const $=s=>document.querySelector(s);
 const modes=[
  {name:'连续降雨与汇水',title:'雨落到坡面，分为入渗与地表径流。',text:'灾害前一个月，距灾害点约 700 m 的梅林水文站累计降雨量为 740.5 mm。雨水部分下渗，地表径流沿坡面与山涧向北侧低洼区汇集。',mechanism:'约 37 万 m³ 表示落到集雨区的降雨总量。水在下渗、地表径流和排出等途径间分配，汇水与持续浸润共同改变路基含水条件。',metric:'740.5',unit:'mm',label:'灾前一个月累计降雨',next:'降雨 → 坡面产流 / 入渗 → 低处汇流'},
@@ -10,8 +10,8 @@ export function setupAntecedents({selectStage,openPhoto}){
  $('#story .facts').after(root);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');let mode=0,wantsPlay=!reduced.matches,inView=false,motion;
  function show(i){mode=i;root.dataset.mode=i;root.querySelectorAll('[data-cause-mode]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.causeMode===i)));const m=modes[i];$('#cause-title').textContent=m.title;$('#cause-text').textContent=m.text;$('#cause-mechanism').textContent=m.mechanism;$('#cause-metric').innerHTML=`${m.metric} <small>${m.unit}</small>`;$('#cause-metric-label').textContent=m.label;$('#cause-path').textContent=m.next;sync();}
- function sync(){const running=wantsPlay&&inView&&!document.hidden;root.classList.toggle('is-running',running);root.dataset.running=String(running);$('#cause-play').textContent=wantsPlay?'Ⅱ 暂停演示':motion?.isFinished()?'↻ 重播过程':'▷ 播放演示';$('#cause-play').setAttribute('aria-pressed',String(wantsPlay));$('#cause-play-status').textContent=`${motion?.isFinished()?'演示完成':wantsPlay?'连续演示':'已暂停'} · 0${mode+1} / 03`;motion?.setRunning(running);}
- motion=createCauseMotion(root,{onMode:show,onFinish:()=>{wantsPlay=false;sync();}});
- root.querySelectorAll('[data-cause-mode]').forEach(b=>b.addEventListener('click',()=>{wantsPlay=false;motion.setMode(+b.dataset.causeMode,{snap:true});show(+b.dataset.causeMode);}));$('#cause-play').addEventListener('click',()=>{if(motion.isFinished())motion.restart();wantsPlay=!wantsPlay;sync();});$('#cause-map').addEventListener('click',()=>openPhoto('image5.jpeg','图3 · 灾害点降雨汇流图'));$('#cause-calculation').addEventListener('click',()=>{selectStage(3);$('#explore').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});});
+ function sync(){const running=wantsPlay&&inView&&!document.hidden;root.classList.toggle('is-running',running);root.dataset.running=String(running);$('#cause-play').textContent=wantsPlay?'Ⅱ 暂停演示':'▷ 播放演示';$('#cause-play').setAttribute('aria-pressed',String(wantsPlay));$('#cause-play-status').textContent=`${wantsPlay?'自动循环':'已暂停'} · 0${mode+1} / 03`;motion?.setRunning(running);}
+ motion=createCauseMotion(root,{onMode:show});
+ root.querySelectorAll('[data-cause-mode]').forEach(b=>b.addEventListener('click',()=>{wantsPlay=false;motion.setMode(+b.dataset.causeMode,{snap:true});show(+b.dataset.causeMode);}));$('#cause-play').addEventListener('click',()=>{wantsPlay=!wantsPlay;sync();});$('#cause-map').addEventListener('click',()=>openPhoto('image5.jpeg','图3 · 灾害点降雨汇流图'));$('#cause-calculation').addEventListener('click',()=>{selectStage(3);$('#explore').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});});
  const observer=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;sync();},{threshold:.12});observer.observe(root);document.addEventListener('visibilitychange',sync);reduced.addEventListener('change',()=>{wantsPlay=!reduced.matches;sync();});show(0);
 }

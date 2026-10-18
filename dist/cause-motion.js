@@ -36,13 +36,13 @@ export function causeScene(){
  <g class="cause-cloud" fill="#c4d3cb"><path d="M53 63q-7-21 18-25 18-28 43-12 24-10 39 14 26-2 33 23Z"/><path d="M216 48q-5-17 16-21 17-22 41-5 21-4 31 12 24-2 29 14Z"/><path d="M444 57q-5-17 19-19 17-22 40-6 23-8 36 12 23-2 29 13Z"/></g>
  <g clip-path="url(#cause-above-ground)" class="cause-rain" fill="none" stroke="#82aab6" stroke-width="1.8" stroke-linecap="round">${rain}</g><text x="20" y="463" class="cause-scene-note">过程示意 · 地形与车道采用简化投影</text></svg>`;
 }
-export function createCauseMotion(root,{onMode,onFinish,onProgress}){
+export function createCauseMotion(root,{onMode,onProgress}){
  const $=s=>root.querySelector(s),$$=s=>[...root.querySelectorAll(s)];
  const cars=$$('.cause-car').map((el,i)=>({el,lane:i%4,offset:Math.floor(i/4)/4+(i%4)*.08}));
  const drops=$$('.cause-rain-particle').map((g,i)=>({drop:g.querySelector('path'),splash:g.querySelector('ellipse'),x:+g.dataset.rainX,ground:+g.dataset.rainGround,top:18+(i*31)%55,offset:i/44}));
  const runoff=$$('[data-runoff-route]').map(el=>({el,length:el.getTotalLength()})),seep=$$('[data-seep-route]').map(el=>({el,length:el.getTotalLength()}));
  const beads=$$('.cause-runoff-particle'),seepBeads=$$('.cause-seep-particle');
- let clock=0,elapsed=0,mode=0,wet=.3,targetWet=.52,running=false,finished=false,last=0,frameId=null;
+ let clock=0,elapsed=0,mode=0,wet=.3,targetWet=.52,running=false,last=0,frameId=null,cycle=1;
  function flow(nodes,routes,speed){for(const [i,node]of nodes.entries()){const route=routes[+node.dataset.flow],t=(clock*speed+(+node.dataset.offset))%1,point=route.el.getPointAtLength(route.length*t);node.setAttribute('cx',f(point.x));node.setAttribute('cy',f(point.y));node.style.opacity=String(.25+.7*Math.sin(Math.PI*t));}}
  function render(){
   for(const c of cars){const phase=(clock/7.8+c.offset)%1,p=carPose(c.lane,phase);c.el.style.transform=`matrix(${p.a},0,${p.c},${p.d},${p.e},${p.f})`;c.el.style.opacity=String(Math.min(1,phase/.045,(1-phase)/.045));}
@@ -51,13 +51,12 @@ export function createCauseMotion(root,{onMode,onFinish,onProgress}){
   const y=274-wet*12;$('#cause-pond-water').setAttribute('d',`M306 ${f(y)}Q344 ${f(y+12)} 382 ${f(y-3)}L394 275Q343 296 309 280Z`);
   $('.cause-time-track b').style.transform=`scaleX(${elapsed/segmentSeconds})`;onProgress?.(elapsed);
  }
- function setMode(i,{snap=false}={}){mode=i;elapsed=0;finished=false;targetWet=[.52,.74,.95][i];if(snap)wet=targetWet;root.dataset.mode=String(i);render();}
+ function setMode(i,{snap=false}={}){mode=i;elapsed=0;targetWet=[.52,.74,.95][i];if(snap)wet=targetWet;root.dataset.mode=String(i);root.dataset.cycle=String(cycle);render();}
  function stop(){running=false;last=0;if(frameId!==null)cancelAnimationFrame(frameId);frameId=null;}
  function frame(now){if(!running)return;const dt=last?Math.min((now-last)/1000,.08):0;last=now;clock+=dt;elapsed+=dt;wet+=(targetWet-wet)*Math.min(1,dt*2.2);
-  if(elapsed>=segmentSeconds){if(mode<2){setMode(mode+1);onMode(mode);}else{elapsed=segmentSeconds;finished=true;render();stop();onFinish();return;}}
+  if(elapsed>=segmentSeconds){const next=(mode+1)%3;if(next===0){cycle++;wet=.3;}setMode(next);onMode(mode);}
   render();frameId=requestAnimationFrame(frame);
  }
  function setRunning(value){if(value===running)return;if(!value){stop();return;}running=true;last=0;frameId=requestAnimationFrame(frame);}
- function restart(){stop();clock=0;wet=.3;setMode(0);onMode(0);}
- render();return {setMode,setRunning,restart,isFinished:()=>finished};
+ root.dataset.cycle=String(cycle);render();return {setMode,setRunning};
 }

@@ -4,9 +4,10 @@ import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-11';
 import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-10';
 import {renderPaper} from './reader.js?v=20261017-11';
 import {setupLearning} from './learning.js?v=20261017-12';
-import {setupAntecedents} from './antecedents.js?v=20261017-13';
+import {setupAntecedents} from './antecedents.js?v=20261018-14';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let currentStage=0,scenes=[],playing=null,toastTimer;
+let currentStage=0,scenes=[],playing=null,toastTimer,playbackFrame=null,stageStarted=0,playbackFraction=0;
+const stageDuration=2000;
 const values=stages.map((_,i)=>calculate(i).fs),fmt=n=>n.toLocaleString('zh-CN',{maximumFractionDigits:1}),safe=n=>stabilityState(n).label;
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3200);}
 function chart(){
@@ -14,7 +15,7 @@ function chart(){
  $('#stage-chart').innerHTML=`<svg viewBox="0 0 550 275" aria-label="四个工况安全系数分别为1.76、1.25、0.92、0.38"><defs><linearGradient id="curve-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c9e74" stop-opacity=".22"/><stop offset="1" stop-color="#7c9e74" stop-opacity="0"/></linearGradient></defs>${[0,.5,1,1.5,2].map(v=>`<line x1="38" y1="${y(v)}" x2="515" y2="${y(v)}" stroke="${v===1?'#c48d66':'#e1e5d9'}" stroke-dasharray="${v===1?'5 5':'0'}"/><text x="9" y="${y(v)+4}" fill="#98a18e" font-size="10">${v.toFixed(1)}</text>`).join('')}<text x="420" y="${y(1)-9}" fill="#ad805b" font-size="9">Fₛ = 1 · 极限平衡</text><path d="M${xs.map((x,i)=>`${x} ${y(values[i])}`).join(' L')} L495 230 L45 230Z" fill="url(#curve-fill)"/><path d="M${xs.map((x,i)=>`${x} ${y(values[i])}`).join(' L')}" fill="none" stroke="#72906a" stroke-width="2"/>${xs.map((x,i)=>`<g class="chart-point" data-stage="${i}" role="button" tabindex="0" aria-label="选择${stages[i].name}，安全系数${stages[i].value}"><circle cx="${x}" cy="${y(values[i])}" r="${currentStage===i?8:5}" fill="${i<2?'#5e8159':'#bb805d'}" stroke="#f8f8f2" stroke-width="3"/><text x="${x}" y="${y(values[i])-17}" fill="${i===currentStage?'#274b2f':'#819273'}" font-size="16" text-anchor="middle">${stages[i].value}</text><text x="${x}" y="254" fill="#94a08c" font-size="9" text-anchor="middle">${stages[i].short}</text></g>`).join('')}</svg>`;
 }
 function selectStage(i){
- currentStage=i;const s=stages[i],r=calculate(i);
+ currentStage=i;playbackFraction=0;if(playing!==null)stageStarted=performance.now();const s=stages[i],r=calculate(i);
  $$('[data-stage]').forEach(e=>{if(e.tagName==='BUTTON')e.setAttribute('aria-pressed',String(+e.dataset.stage===i));});
  $('#stage-index').textContent=`工况 0${i+1} / 04`;$('#stage-fs').textContent=s.value;$('#stage-name').textContent=s.name;$('#stage-description').textContent=s.description;$('#stage-conditions').textContent=s.conditions;
  $('#stage-status').textContent=safe(r.fs);$('#stage-status').classList.toggle('unsafe',r.fs<1-1e-6);$('#stage-status').classList.toggle('critical',Math.abs(r.fs-1)<1e-6);
@@ -46,9 +47,11 @@ $('#lab-form').addEventListener('reset',e=>{e.preventDefault();stopPlayback();se
 $('#save-experiment').addEventListener('click',()=>{const r=updateLab();download('归途之下-计算记录.txt',`归途之下｜力学实验记录\n工况：${stages[r.stage].name}\n公式：${stages[r.stage].formula}\nφ=${r.params.phi}°\nβ=${r.params.beta}°\nc=${r.params.cohesion} kPa\nP=${r.params.load} kN\n容重=${r.params.unitWeight} kN/m³\n土重W=${r.weight.toFixed(4)} kN\nA=319 m²，L=56.8 m\nR=${r.resistance.toFixed(4)} kN\nT=${r.driving.toFixed(4)} kN\nFs=${r.fs.toFixed(6)}\n\n力学科普简化模型 · ${stages[r.stage].source}\n${stages[r.stage].note}\n`);toast('计算记录已生成');});
 document.addEventListener('click',e=>{const b=e.target.closest('.stage-tabs button[data-stage],.chart-point[data-stage]');if(b){stopPlayback();selectStage(+b.dataset.stage);}});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('chart-point')){e.preventDefault();stopPlayback();selectStage(+e.target.dataset.stage);}});
-function updatePlayback(){const active=playing!==null;$('#play-stages').textContent=active?'Ⅱ 暂停自动播放':'▷ 自动播放四个工况';$('#play-stages').setAttribute('aria-pressed',String(active));$('#playback-status').textContent=`${active?'自动循环播放 · 约 3 秒切换':'当前工况'} · 0${currentStage+1} / 04 · ${stages[currentStage].name}`;$('#playback-progress').style.width=((currentStage+1)/4*100)+'%';$('.mini-model').classList.toggle('is-playing',active);}
-function stopPlayback(){clearInterval(playing);playing=null;updatePlayback();}
-$('#play-stages').addEventListener('click',()=>{if(playing!==null){stopPlayback();return;}playing=setInterval(()=>selectStage((currentStage+1)%4),2800);selectStage(0);updatePlayback();});
+function paintPlaybackProgress(){const value=(currentStage+playbackFraction)/4*100,percent=Math.floor(value),track=$('#case-playback-track');$('#playback-progress').style.width=value+'%';if(track.getAttribute('aria-valuenow')!==String(percent)){track.setAttribute('aria-valuenow',String(percent));track.setAttribute('aria-valuetext',`${percent}% · 工况 ${currentStage+1} / 4`);$('#playback-percent').textContent=String(percent).padStart(2,'0')+'%';}}
+function animatePlayback(){playbackFrame=null;if(playing===null)return;playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);paintPlaybackProgress();playbackFrame=requestAnimationFrame(animatePlayback);}
+function updatePlayback(){const active=playing!==null;$('#play-stages').textContent=active?'Ⅱ 暂停自动播放':'▷ 自动播放四个工况';$('#play-stages').setAttribute('aria-pressed',String(active));$('#playback-status').textContent=`${active?'自动循环 · 每 2 秒切换':'当前工况'} · 0${currentStage+1} / 04 · ${stages[currentStage].name}`;paintPlaybackProgress();$('.mini-model').classList.toggle('is-playing',active);if(active&&playbackFrame===null)playbackFrame=requestAnimationFrame(animatePlayback);}
+function stopPlayback(){if(playing!==null)playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);clearInterval(playing);playing=null;if(playbackFrame!==null)cancelAnimationFrame(playbackFrame);playbackFrame=null;updatePlayback();}
+$('#play-stages').addEventListener('click',()=>{if(playing!==null){stopPlayback();return;}playing=setInterval(()=>selectStage((currentStage+1)%4),stageDuration);selectStage(0);updatePlayback();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
 $('#see-model').addEventListener('click',e=>{e.preventDefault();const model=$('#explore-scene');scenes[1]?.resetView(true);scenes[1]?.toggleForces(true);history.replaceState(null,'','#explore-scene');model.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});model.focus({preventScroll:true});model.parentElement.classList.add('model-highlight');setTimeout(()=>model.parentElement.classList.remove('model-highlight'),1800);});
 $('.menu-toggle').addEventListener('click',()=>{const open=$('.header nav').classList.toggle('open');$('.menu-toggle').setAttribute('aria-expanded',String(open));});
