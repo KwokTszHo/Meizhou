@@ -8,7 +8,7 @@ export function renderPaper(data,container,onImage,math={}){
  container.replaceChildren();
  const outline=element('nav',null,'reader-outline');outline.setAttribute('aria-label','论文目录与图号导航');
  outline.append(element('strong','阅读导航 · 点击跳转'));const sections=element('div',null,'reader-section-links'),figures=element('div',null,'reader-figure-links');outline.append(sections,figures);
- const jump=(parent,label,target,title)=>{const button=element('button',label);button.type='button';if(title)button.title=title;button.addEventListener('click',()=>{target.scrollIntoView({block:'start',behavior:'instant'});target.tabIndex=-1;target.focus({preventScroll:true});});parent.append(button);};
+ const jump=(parent,label,target,title)=>{const button=element('button',label);button.type='button';if(title)button.title=title;button.addEventListener('click',()=>{target.scrollIntoView({block:'start',behavior:'smooth'});target.tabIndex=-1;target.focus({preventScroll:true});});parent.append(button);};
  const equations=element('div',null,'reader-equation-links');equations.setAttribute('aria-label','公式导航');outline.append(equations);
  container.append(outline);
  const key=element('details',null,'reader-symbols');key.append(element('summary','符号速查 · 读懂公式 ＋'));const keyText=element('p');keyText.innerHTML='F<sub>s</sub>：安全系数；W：土体自重；P：车辆荷载；φ：内摩擦角；β：滑面倾角；γ、γ<sub>sat</sub>、γ′：天然、饱和与浮容重。式（9）中的 C<sub>i</sub>、l<sub>i</sub> 在交互模型中分别记作 c、L；tg 与 tan 均表示正切。';key.append(keyText);container.append(key);

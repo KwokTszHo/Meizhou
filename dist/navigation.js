@@ -30,6 +30,6 @@ export function setupJumpReturn(){
   if(saved.dialog&&!saved.dialog.open)saved.dialog.showModal();
   history.replaceState(null,'',location.pathname+location.search+saved.hash);
   // Native dialog close handlers may restore focus; restore the reading position after them.
-  const restore=()=>{window.scrollTo({top:saved.top,behavior:'instant'});if(saved.dialog)saved.dialog.scrollTo({top:saved.dialogTop,behavior:'instant'});if(saved.focus?.isConnected&&!saved.focus.closest('dialog:not([open])'))saved.focus.focus({preventScroll:true});paint();};restore();requestAnimationFrame(restore);
+  const restore=()=>{window.scrollTo({top:saved.top,behavior:'smooth'});if(saved.dialog)saved.dialog.scrollTo({top:saved.dialogTop,behavior:'smooth'});if(saved.focus?.isConnected&&!saved.focus.closest('dialog:not([open])'))saved.focus.focus({preventScroll:true});paint();};requestAnimationFrame(restore);
  });
 }

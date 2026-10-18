@@ -7,7 +7,7 @@ export function setupPolish(){
  $('.hero-actions').after(curve);
  curve.addEventListener('click',e=>{const button=e.target.closest('[data-hero-stage]');if(button)$(`.stage-tabs button[data-stage="${button.dataset.heroStage}"]`).click();});
  curve.querySelector(':scope>p').innerHTML='<span class="hero-touch-dot" aria-hidden="true"></span>点选工况，三维剖面同步变化<button type="button" class="hero-return-model">查看上方模型 ↑</button>';
- curve.querySelector('.hero-return-model').addEventListener('click',()=>$('.hero-model').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth',block:'start'}));
+ curve.querySelector('.hero-return-model').addEventListener('click',()=>$('.hero-model').scrollIntoView({behavior:'smooth',block:'start'}));
  const update=stage=>{curve.querySelectorAll('[data-hero-stage]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.heroStage===stage)));curve.querySelectorAll('[data-hero-dot]').forEach(dot=>dot.classList.toggle('is-current',+dot.dataset.heroDot===stage));};update(0);document.addEventListener('lab-calculated',e=>update(e.detail.stage));
  const panel=$('.hero-model'),placeholder=document.createComment('hero-model-home');panel.before(placeholder);
  const zoom=document.createElement('button');zoom.type='button';zoom.id='hero-model-zoom';zoom.className='model-expand';zoom.textContent='展开模型 ↗';$('.model-workspace-label').append(zoom);

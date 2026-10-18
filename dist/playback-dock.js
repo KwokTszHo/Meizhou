@@ -1,5 +1,5 @@
 import {stages} from './model.js?v=20261017-5';
-import {registerFloating} from './navigation.js?v=20261018-21';
+import {registerFloating} from './navigation.js?v=20261018-22';
 export function setupPlaybackDock(){
  const dock=document.createElement('aside');dock.id='global-playback';dock.className='global-playback';dock.hidden=true;dock.setAttribute('aria-label','四工况自动播放控制');
  dock.innerHTML='<div class="global-playback-copy"><span><i aria-hidden="true"></i>四工况正在自动播放</span><strong id="global-playback-case"></strong></div><output id="global-playback-percent" aria-label="本轮自动播放进度">00%</output><button type="button" id="global-playback-pause">暂停 Ⅱ</button><div class="global-playback-track" role="progressbar" aria-label="四工况播放进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i><b style="left:25%"></b><b style="left:50%"></b><b style="left:75%"></b></div><small>页面中的工况与试算条件同步变化 · 手动调参即暂停</small>';

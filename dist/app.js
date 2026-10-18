@@ -1,17 +1,17 @@
-import {setupJumpReturn} from './navigation.js?v=20261018-21';
-import {setupPlaybackDock} from './playback-dock.js?v=20261018-21';
-import {setupExperimentTools} from './experiment-tools.js?v=20261018-20';
-import {setupReadingTools} from './reading-tools.js?v=20261018-21';
+import {setupJumpReturn} from './navigation.js?v=20261018-22';
+import {setupPlaybackDock} from './playback-dock.js?v=20261018-22';
+import {setupExperimentTools} from './experiment-tools.js?v=20261018-22';
+import {setupReadingTools} from './reading-tools.js?v=20261018-22';
 import {setupMeasureEffects} from './measure-effects.js?v=20261018-20';
 import {setupSceneManager} from './scene-manager.js?v=20261018-20';
-import {setupPolish} from './polish.js?v=20261018-19';
+import {setupPolish} from './polish.js?v=20261018-22';
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
 import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261018-20';
-import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-21';
-import {renderPaper} from './reader.js?v=20261018-15';
-import {setupLearning} from './learning.js?v=20261018-20';
-import {setupAntecedents} from './antecedents.js?v=20261018-18';
+import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-22';
+import {renderPaper} from './reader.js?v=20261018-22';
+import {setupLearning} from './learning.js?v=20261018-22';
+import {setupAntecedents} from './antecedents.js?v=20261018-22';
 import {setupStudy} from './study.js?v=20261018-16';
 import {setupMeasures} from './measures.js?v=20261018-18';
 import {setupLabFeedback} from './lab-feedback.js?v=20261018-21';
@@ -66,7 +66,7 @@ function updatePlayback(){const active=playing!==null;$('#play-stages').textCont
 function stopPlayback(reason='paused'){if(reason==='manual'&&playing===null&&playbackStopReason!=='manual')reason='independent';playbackStopReason=reason;if(playing!==null)playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);clearInterval(playing);playing=null;if(playbackFrame!==null)cancelAnimationFrame(playbackFrame);playbackFrame=null;updatePlayback();}
 $('#play-stages').addEventListener('click',()=>{if(playing!==null){stopPlayback();return;}playing=setInterval(()=>selectStage((currentStage+1)%4),stageDuration);selectStage(0);updatePlayback();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPlayback();});
-$('#see-model').addEventListener('click',e=>{e.preventDefault();const model=$('#explore-scene');scenes[1]?.resetView(true);scenes[1]?.toggleForces(true);history.replaceState(null,'','#explore-scene');model.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});model.focus({preventScroll:true});model.parentElement.classList.add('model-highlight');setTimeout(()=>model.parentElement.classList.remove('model-highlight'),1800);});
+$('#see-model').addEventListener('click',e=>{e.preventDefault();const model=$('#explore-scene');scenes[1]?.resetView(true);scenes[1]?.toggleForces(true);history.replaceState(null,'','#explore-scene');model.scrollIntoView({behavior:'smooth',block:'center'});model.focus({preventScroll:true});model.parentElement.classList.add('model-highlight');setTimeout(()=>model.parentElement.classList.remove('model-highlight'),1800);});
 $('.menu-toggle').addEventListener('click',()=>{const open=$('.header nav').classList.toggle('open');$('.menu-toggle').setAttribute('aria-expanded',String(open));});
 $$('.header nav a').forEach(a=>a.addEventListener('click',()=>{$('.header nav').classList.remove('open');$('.menu-toggle').setAttribute('aria-expanded','false');}));
 $$('[data-open]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.open).showModal()));
