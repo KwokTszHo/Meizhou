@@ -1,10 +1,14 @@
+import {setupExperimentTools} from './experiment-tools.js?v=20261018-20';
+import {setupReadingTools} from './reading-tools.js?v=20261018-20';
+import {setupMeasureEffects} from './measure-effects.js?v=20261018-20';
+import {setupSceneManager} from './scene-manager.js?v=20261018-20';
 import {setupPolish} from './polish.js?v=20261018-19';
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
-import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261018-18';
+import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261018-20';
 import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-15';
 import {renderPaper} from './reader.js?v=20261018-15';
-import {setupLearning} from './learning.js?v=20261017-12';
+import {setupLearning} from './learning.js?v=20261018-20';
 import {setupAntecedents} from './antecedents.js?v=20261018-18';
 import {setupStudy} from './study.js?v=20261018-16';
 import {setupMeasures} from './measures.js?v=20261018-18';
@@ -121,23 +125,12 @@ setupAntecedents({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto});
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 setupStudy({selectStage:i=>{stopPlayback();selectStage(i);},showEvidence:evidence,openPhoto});
 setupMeasures({openPhoto});setupInteractionFeedback();setupLabFeedback();setupPolish();
+const applyTrial=trial=>{stopPlayback('manual');selectStage(trial.stage);for(const key of Object.keys(initialInputs))$('#'+key).value=trial.params[key];updateLab('restore');};
+setupExperimentTools({applyTrial,stopPlayback,toast});setupReadingTools({applyTrial});setupMeasureEffects();
 selectStage(0);evidence('tests');updateLab();
-function showSceneError(host,error){
- console.warn('3D loading failed',host.id,error);host.dataset.renderer='unavailable';
- host.querySelectorAll('canvas,.scene-fallback').forEach(node=>node.remove());
- const fallback=document.createElement('div');fallback.className='scene-fallback scene-error';
- fallback.innerHTML='<img src="assets/section-fallback.svg" alt="边坡剖面：山体、道路、填方与潜在滑面"><p>三维模型未能加载，请刷新重试。图表与参数计算仍可使用。</p><button class="small-button" type="button">重新加载模型 ↻</button>';
- fallback.querySelector('button').addEventListener('click',()=>location.reload());host.append(fallback);
-}
 const sceneHosts=[$('#scene'),$('#explore-scene')];
-try{
- const {createScene}=await import('./scene.js?v=20261018-19');
- for(const [index,host] of sceneHosts.entries()){
-  try{scenes[index]=createScene(host);scenes[index].setStage(currentStage);if(index===1){scenes[index].toggleForces(true);scenes[index].resetView(true);}}
-  catch(error){showSceneError(host,error);}
- }
-}catch(error){sceneHosts.forEach(host=>showSceneError(host,error));}
-window.__sceneReady=sceneHosts.every((host,index)=>!!scenes[index]);
+scenes=await setupSceneManager({hosts:sceneHosts,getStage:()=>currentStage,onStage:i=>{stopPlayback();selectStage(i);}});
+window.__sceneReady=scenes.length===2;
 
 const careRows=$$('.care-rows details');
 function syncCare(){const allOpen=careRows.every(row=>row.open);$('.care-toolbar .interaction-hint').textContent=allOpen?'点击标题可收起 · 内容已全部展开':'点击标题切换 · 可逐项展开';const button=$('[data-toggle-care]');button.textContent=allOpen?'全部收起 −':'全部展开 ＋';button.setAttribute('aria-expanded',String(allOpen));careRows.forEach(row=>row.querySelector('.care-state').textContent=row.open?'收起 −':'展开 ＋');}

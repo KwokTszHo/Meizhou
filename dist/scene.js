@@ -102,21 +102,23 @@ export function createScene(host){
   function dimension(points){const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(...p))),new THREE.LineBasicMaterial({color:0xa5c7b2,transparent:true,opacity:.6}));dimensions.add(line);}
   dimension([[15,-2.8,7.5],[15,4.1,7.5]]);dimension([[14.7,-2.8,7.5],[15.3,-2.8,7.5]]);dimension([[14.7,4.1,7.5],[15.3,4.1,7.5]]);
   dimension([[-.85,4.95,7.5],[3,4.95,7.5]]);
-  if(host.id==='scene')for(const [text,pos]of[['填方高约 30 m','15.1,1.1,7.5']]){const el=document.createElement('div');el.className='scene-label';el.dataset.position=pos;el.textContent=text;host.append(el);}
-  let stage=0,visible=true,last=0,clock=0,refreshSelection=()=>{};
+  if(host.id==='scene'&&!host.querySelector('[data-dimension-label]'))for(const [text,pos]of[['填方高约 30 m','15.1,1.1,7.5']]){const el=document.createElement('div');el.className='scene-label';el.dataset.dimensionLabel='true';el.dataset.position=pos;el.textContent=text;host.append(el);}
+  let stage=0,visible=true,last=0,clock=0,refreshSelection=()=>{},viewTransition=null,frameHandle=0,disposed=false;
   const labels=[...host.querySelectorAll('[data-position]')].map(el=>({el,pos:new THREE.Vector3(...el.dataset.position.split(',').map(Number))}));
   function setStage(value){stage=value;crack.visible=value>0;pond.visible=value>0;rain.visible=value>0;water.visible=value===3;cars.visible=value!==1;U.visible=value===3;const r=forceBreakdown(value),scale=5.2/Math.max(r.resistance,r.driving);R.setLength(Math.max(.4,r.resistance*scale),.4,.2);T.setLength(Math.max(.4,r.driving*scale),.4,.2);dirt.color.setHex(value===3?0x9d9e84:0xc3a079);host.dataset.stage=value;refreshSelection();}
-  function resetView(section=false){controls.target.set(0,2.3,0);camera.position.set(...(section?[0,4,47]:[27,21,31]));controls.update();}
+  function setView(name='perspective',animate=true){const positions={perspective:[27,21,31],section:[0,4,47],top:[0,48,10],slope:[35,12,22]};if(!positions[name])return;host.dataset.view=name;const target=new THREE.Vector3(0,2.3,0),destination=new THREE.Vector3(...positions[name]);if(reduced||!animate){viewTransition=null;camera.position.copy(destination);controls.target.copy(target);controls.update();return;}viewTransition={start:performance.now(),from:camera.position.clone(),targetFrom:controls.target.clone(),to:destination,target};}
+  function resetView(section=false){setView(section?'section':'perspective',false);}
+  controls.addEventListener('start',()=>{viewTransition=null;});
   function resize(){const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(18))*Math.max(1,1.4/camera.aspect)));camera.updateProjectionMatrix();}
   const ro=new ResizeObserver(resize);ro.observe(host);resetView();resize();setStage(0);
   const observer=new IntersectionObserver(e=>{visible=e[0].isIntersecting;},{rootMargin:'100px'});observer.observe(host);
-  function frame(now){requestAnimationFrame(frame);if(!visible||document.hidden||now-last<32)return;const dt=Math.min((now-last)/1000,.05);last=now;clock+=dt;controls.update();
+  function frame(now){if(disposed)return;frameHandle=requestAnimationFrame(frame);if(!visible||document.hidden||now-last<32)return;const dt=Math.min((now-last)/1000,.05);last=now;clock+=dt;if(viewTransition){const t=Math.min(1,(now-viewTransition.start)/650),ease=1-Math.pow(1-t,3);camera.position.lerpVectors(viewTransition.from,viewTransition.to,ease);controls.target.lerpVectors(viewTransition.targetFrom,viewTransition.target,ease);if(t===1)viewTransition=null;}controls.update();
     if(!reduced&&stage>0){for(let i=0;i<170;i++){rainArray[i*3+1]-=dt*5;if(rainArray[i*3+1]<4)rainArray[i*3+1]=18;}rainGeo.attributes.position.needsUpdate=true;}
     if(!reduced&&stage===3)for(const d of droplets)d.mesh.position.copy(d.curve.getPoint((clock*.08+d.offset)%1));
     renderer.render(scene,camera);
     for(const label of labels){const point=label.pos.clone().applyMatrix4(world.matrixWorld).project(camera);label.el.style.transform=`translate(${(point.x*.5+.5)*host.clientWidth}px,${(-point.y*.5+.5)*host.clientHeight}px)`;label.el.style.opacity=Math.abs(point.x)<.95&&Math.abs(point.y)<.95&&point.z<1?'1':'0';}
-  }requestAnimationFrame(frame);
-  renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();host.querySelectorAll('.scene-label').forEach(e=>e.style.opacity='0');});
+  }frameHandle=requestAnimationFrame(frame);
+  renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();host.dispatchEvent(new CustomEvent('scene-unavailable'));});
   const parts={mountain:[hill,terrain,forest],fill:[fill,slopeShape],slip:[slipLine],water:[pond,drainage],load:[roadway,cars],wall:[wall]};
   const partColors={mountain:0x70d6ae,fill:0xffc477,slip:0xff9565,water:0x69e2f2,load:0xffdf6e,wall:0xd5e8f3};
   const partNames={mountain:'原有山体',fill:'填方路基',slip:'潜在滑动界面',water:'汇水与排水',load:'道路荷载',wall:'坡脚挡墙'};
@@ -141,5 +143,5 @@ export function createScene(host){
   renderer.domElement.addEventListener('pointerup',event=>{if(down&&Math.hypot(event.clientX-down.x,event.clientY-down.y)<6){const found=hit(event);if(found){focusPart(found.key);host.dispatchEvent(new CustomEvent('model-part-select',{detail:found.key,bubbles:true}));}}down=null;});
   host.querySelector('.scene-fallback')?.remove();
   host.dataset.renderer='webgl';
-  return {setStage,resetView,focusPart,toggleForces(value){arrows.visible=value;},renderer};
+  return {setStage,resetView,setView,focusPart,toggleForces(value){arrows.visible=value;},renderer,dispose(){disposed=true;cancelAnimationFrame(frameHandle);ro.disconnect();observer.disconnect();controls.dispose();scene.traverse(object=>{object.geometry?.dispose();if(Array.isArray(object.material))object.material.forEach(m=>m.dispose());else object.material?.dispose();});texture.dispose();renderer.dispose();renderer.domElement.remove();selectionTag.remove();}};
 }
