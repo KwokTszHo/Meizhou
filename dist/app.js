@@ -6,7 +6,8 @@ import {renderPaper} from './reader.js?v=20261018-15';
 import {setupLearning} from './learning.js?v=20261017-12';
 import {setupAntecedents} from './antecedents.js?v=20261018-15';
 import {setupStudy} from './study.js?v=20261018-16';
-import {setupMeasures} from './measures.js?v=20261018-15';
+import {setupMeasures} from './measures.js?v=20261018-17';
+import {setupInteractionFeedback} from './interactions.js?v=20261018-17';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer,playbackFrame=null,stageStarted=0,playbackFraction=0;
 const stageDuration=2000;
@@ -116,7 +117,7 @@ setupLearning({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto,stopPla
 setupAntecedents({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto});
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
 setupStudy({selectStage:i=>{stopPlayback();selectStage(i);},showEvidence:evidence,openPhoto});
-setupMeasures({openPhoto});
+setupMeasures({openPhoto});setupInteractionFeedback();
 selectStage(0);evidence('tests');updateLab();
 function showSceneError(host,error){
  console.warn('3D loading failed',host.id,error);host.dataset.renderer='unavailable';
