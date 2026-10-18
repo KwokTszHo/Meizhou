@@ -1,18 +1,20 @@
+import {setupJumpReturn} from './navigation.js?v=20261018-21';
+import {setupPlaybackDock} from './playback-dock.js?v=20261018-21';
 import {setupExperimentTools} from './experiment-tools.js?v=20261018-20';
-import {setupReadingTools} from './reading-tools.js?v=20261018-20';
+import {setupReadingTools} from './reading-tools.js?v=20261018-21';
 import {setupMeasureEffects} from './measure-effects.js?v=20261018-20';
 import {setupSceneManager} from './scene-manager.js?v=20261018-20';
 import {setupPolish} from './polish.js?v=20261018-19';
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
 import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261018-20';
-import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-15';
+import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-21';
 import {renderPaper} from './reader.js?v=20261018-15';
 import {setupLearning} from './learning.js?v=20261018-20';
 import {setupAntecedents} from './antecedents.js?v=20261018-18';
 import {setupStudy} from './study.js?v=20261018-16';
 import {setupMeasures} from './measures.js?v=20261018-18';
-import {setupLabFeedback} from './lab-feedback.js?v=20261018-18';
+import {setupLabFeedback} from './lab-feedback.js?v=20261018-21';
 import {setupInteractionFeedback} from './interactions.js?v=20261018-17';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let playbackStopReason='initial';
@@ -58,7 +60,7 @@ $('#lab-form').addEventListener('reset',e=>{e.preventDefault();stopPlayback('man
 $('#save-experiment').addEventListener('click',()=>{const r=updateLab();download('归途之下-计算记录.txt',`归途之下｜力学实验记录\n工况：${stages[r.stage].name}\n公式：${stages[r.stage].formula}\nφ=${r.params.phi}°\nβ=${r.params.beta}°\nc=${r.params.cohesion} kPa\nP=${r.params.load} kN\n容重=${r.params.unitWeight} kN/m³\n土重W=${r.weight.toFixed(4)} kN\nA=319 m²，L=56.8 m\nR=${r.resistance.toFixed(4)} kN\nT=${r.driving.toFixed(4)} kN\nFs=${r.fs.toFixed(6)}\n\n力学科普简化模型 · ${stages[r.stage].source}\n${stages[r.stage].note}\n`);toast('计算记录已生成');});
 document.addEventListener('click',e=>{const b=e.target.closest('.stage-tabs button[data-stage],.chart-point[data-stage]');if(b){stopPlayback();selectStage(+b.dataset.stage);}});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('chart-point')){e.preventDefault();stopPlayback();selectStage(+e.target.dataset.stage);}});
-function paintPlaybackProgress(){const value=(currentStage+playbackFraction)/4*100,percent=Math.floor(value),track=$('#case-playback-track');$('#playback-progress').style.width=value+'%';if(track.getAttribute('aria-valuenow')!==String(percent)){track.setAttribute('aria-valuenow',String(percent));track.setAttribute('aria-valuetext',`${percent}% · 工况 ${currentStage+1} / 4`);$('#playback-percent').textContent=String(percent).padStart(2,'0')+'%';}}
+function paintPlaybackProgress(){const value=(currentStage+playbackFraction)/4*100,percent=Math.floor(value),track=$('#case-playback-track');$('#playback-progress').style.width=value+'%';if(track.getAttribute('aria-valuenow')!==String(percent)){track.setAttribute('aria-valuenow',String(percent));track.setAttribute('aria-valuetext',`${percent}% · 工况 ${currentStage+1} / 4`);$('#playback-percent').textContent=String(percent).padStart(2,'0')+'%';document.dispatchEvent(new CustomEvent('stage-playback-progress',{detail:{percent,value,stage:currentStage}}));}}
 function animatePlayback(){playbackFrame=null;if(playing===null)return;playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);paintPlaybackProgress();playbackFrame=requestAnimationFrame(animatePlayback);}
 function updatePlayback(){const active=playing!==null;$('#play-stages').textContent=active?'Ⅱ 暂停自动播放':'▷ 自动播放四个工况';$('#play-stages').setAttribute('aria-pressed',String(active));$('#playback-status').textContent=`${active?'自动循环 · 每 2 秒切换':'当前工况'} · 0${currentStage+1} / 04 · ${stages[currentStage].name}`;paintPlaybackProgress();$('.mini-model').classList.toggle('is-playing',active);if(active&&playbackFrame===null)playbackFrame=requestAnimationFrame(animatePlayback);document.dispatchEvent(new CustomEvent('stage-playback-change',{detail:{active,stage:currentStage,reason:playbackStopReason}}));}
 function stopPlayback(reason='paused'){if(reason==='manual'&&playing===null&&playbackStopReason!=='manual')reason='independent';playbackStopReason=reason;if(playing!==null)playbackFraction=Math.min(1,(performance.now()-stageStarted)/stageDuration);clearInterval(playing);playing=null;if(playbackFrame!==null)cancelAnimationFrame(playbackFrame);playbackFrame=null;updatePlayback();}
@@ -126,7 +128,7 @@ setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:
 setupStudy({selectStage:i=>{stopPlayback();selectStage(i);},showEvidence:evidence,openPhoto});
 setupMeasures({openPhoto});setupInteractionFeedback();setupLabFeedback();setupPolish();
 const applyTrial=trial=>{stopPlayback('manual');selectStage(trial.stage);for(const key of Object.keys(initialInputs))$('#'+key).value=trial.params[key];updateLab('restore');};
-setupExperimentTools({applyTrial,stopPlayback,toast});setupReadingTools({applyTrial});setupMeasureEffects();
+setupExperimentTools({applyTrial,stopPlayback,toast});setupReadingTools({applyTrial});setupJumpReturn();setupPlaybackDock();setupMeasureEffects();
 selectStage(0);evidence('tests');updateLab();
 const sceneHosts=[$('#scene'),$('#explore-scene')];
 scenes=await setupSceneManager({hosts:sceneHosts,getStage:()=>currentStage,onStage:i=>{stopPlayback();selectStage(i);}});
