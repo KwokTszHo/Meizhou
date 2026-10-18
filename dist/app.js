@@ -1,10 +1,12 @@
 import {calculate,stages,stageParameters,stabilityState} from './model.js?v=20261017-5';
 import qrcode from './vendor/qrcode.js';
 import {renderWorkbench,setupWorkbench} from './workbench.js?v=20261017-11';
-import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261017-10';
-import {renderPaper} from './reader.js?v=20261017-11';
+import {renderSamplePanel,setupEngineering} from './engineering.js?v=20261018-15';
+import {renderPaper} from './reader.js?v=20261018-15';
 import {setupLearning} from './learning.js?v=20261017-12';
-import {setupAntecedents} from './antecedents.js?v=20261018-14';
+import {setupAntecedents} from './antecedents.js?v=20261018-15';
+import {setupStudy} from './study.js?v=20261018-15';
+import {setupMeasures} from './measures.js?v=20261018-15';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let currentStage=0,scenes=[],playing=null,toastTimer,playbackFrame=null,stageStarted=0,playbackFraction=0;
 const stageDuration=2000;
@@ -38,6 +40,7 @@ function updateLab(changed=''){
  $('#lab-control-note').textContent=stage===0?'天然含水条件：黏聚与摩擦共同抗滑，计入车辆荷载。':stage===1?'滑动界面取 c = 0，低车流工况取 P = 0；这两个参数已同步置零。':'滑动界面取 c = 0，车辆荷载可调。'+(stage===3?'此工况采用浮容重与渗流作用项。':'土重采用饱和容重计算。');
  $('#lab-params').innerHTML=`<div><span>${stage===0?'天然容重 γ':stage===3?'浮容重 γ′':'饱和容重 γsat'}</span><strong>${p.unitWeight.toFixed(1)} <small>kN/m³</small></strong></div><div><span>当前土重 W${stage===0?'₁':stage===3?'₃':'₂'}</span><strong>${fmt(r.weight)} <small>kN</small></strong></div><div><span>截面面积 A</span><strong>319 <small>m²</small></strong></div><div><span>滑面长度 L</span><strong>56.8 <small>m</small></strong></div>${stage===3?'<p>γ′ = 20 − 9.8 = 10.2 kN/m³ · 渗流作用系数 = 0.51</p>':''}`;
  renderWorkbench(stage,p,r,changed);
+ document.dispatchEvent(new CustomEvent('lab-calculated',{detail:{stage,params:p,...r,changed}}));
  return {stage,params:p,...r};
 }
 function download(name,text){const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -112,6 +115,8 @@ setupWorkbench();
 setupLearning({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto,stopPlayback});
 setupAntecedents({selectStage:i=>{stopPlayback();selectStage(i);},openPhoto});
 setupEngineering({onStructure:key=>scenes.forEach(s=>s.focusPart(key)),onSample:sample=>{stopPlayback();selectStage(0);$('#phi').value=sample.phi;$('#cohesion').value=sample.cohesion;updateLab('phi');$('#lab-part-explainer').textContent=`正在使用 ${sample.id} 的强度参数：c = ${sample.cohesion} kPa、φ = ${sample.phi}°；其余输入保持初始工况基准。` ;$('#lab').scrollIntoView({behavior:'smooth'});toast('已载入 '+sample.id+' 的强度参数进行试算');}});
+setupStudy({selectStage:i=>{stopPlayback();selectStage(i);},showEvidence:evidence,openPhoto});
+setupMeasures({openPhoto});
 selectStage(0);evidence('tests');updateLab();
 function showSceneError(host,error){
  console.warn('3D loading failed',host.id,error);host.dataset.renderer='unavailable';
